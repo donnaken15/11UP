@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CheatTable CheatEngineTableVersion="24">
+  <CheatEntries>
+    <CheatEntry>
+      <ID>3</ID>
+      <Description>"Score"</Description>
+      <VariableType>4 Bytes</VariableType>
+      <Address>11UP.exe+8058CE4</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>2</ID>
+      <Description>"Hi-score"</Description>
+      <VariableType>4 Bytes</VariableType>
+      <Address>11UP.exe+58AC8</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>1</ID>
+      <Description>"Timer"</Description>
+      <VariableType>Byte</VariableType>
+      <Address>11UP.exe+587F4</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>4</ID>
+      <Description>"11's"</Description>
+      <VariableType>4 Bytes</VariableType>
+      <Address>11UP.exe+58C18</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>5</ID>
+      <Description>"Frame"</Description>
+      <VariableType>8 Bytes</VariableType>
+      <Address>11UP.exe+8058CE8</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>6</ID>
+      <Description>"Deck Size"</Description>
+      <VariableType>Byte</VariableType>
+      <Address>11UP.exe+58AC4</Address>
+    </CheatEntry>
+  </CheatEntries>
+  <UserdefinedSymbols/>
+</CheatTable>
