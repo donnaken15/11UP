@@ -1,0 +1,21 @@
+used vram - vram usage of texture + vertex data
+fps - frames per second
+pps - polys per second
+ppf - polys fer frame
+overdraw - effective overdraw per frame
+strst - IDirect3DDevice9::SetRenderState per frame
+sttxstgst - IDirect3DDevice9::SetTextureStageState per frame
+ppc - polys per DrawPrimitve
+sttx - IDirect3DDevice9::SetTexture per frame
+stvp - IDirect3DDevice9::SetViewport per frame
+svs - IDirect3DDevice9::SetVertexShader per frame
+sss - IDirect3DDevice9::SetStreamSource per frame
+
+<used vram>,<fps>,<pps>,<ppf>,<overdraw>,<strst>,<sttxstgst>,<ppc>,<sttx>,<stvp>,<svs>,<sss>
+
+1048576,1,242,242,0,185.000000,40.000000,1.983607,123.000000,0,4.000000,0.000000
+1048576,59,26616,451,0,143.559326,5.000000,2.708181,134.559326,0,0.000000,0.000000
+1048576,60,29760,496,0,146.000000,5.000000,2.834016,137.000000,0,0.000000,0.000000
+1048576,61,31616,518,0,150.147537,5.000000,2.892854,141.147537,0,0.000000,0.000000
+1048576,60,36876,614,0,209.300003,5.000000,2.578922,200.300003,0,0.000000,0.000000
+1048576,59,42344,717,0,252.847458,5.000000,2.546242,243.847458,0,0.000000,0.000000
