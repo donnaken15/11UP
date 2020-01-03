@@ -11,30 +11,30 @@
 
 #include <windows.h>
 
-LPDIRECT3DTEXTURE9 textures[4];
-LPD3DXSPRITE drawing;
-RECT rect, card_rect, serect, card_rect_num[20], card_rect_suit[4], card_rect_next[2], click_areas[25], card_score_rect[5], timer_rect_lights[3], flash_11s_rect;
-LPRECT lprect;
-D3DXVECTOR2 card_pos[23], card_suit_pos[23], card_next_pos[2], card_score_pos[23], timer_pos[36], flash_11s_pos;
-LPD3DXFONT fonts[16];
-POINT mousepos;
-HFONT hfonts[16];
+static LPDIRECT3DTEXTURE9 textures[4];
+static LPD3DXSPRITE drawing;
+static RECT rect, card_rect, serect, card_rect_num[20], card_rect_suit[4], card_rect_next, click_areas[24], card_score_rect[5], timer_rect_lights[3], flash_11s_rect;
+static LPRECT lprect;
+static D3DXVECTOR2 card_pos[23], card_suit_pos[23], card_next_pos, card_score_pos[23], timer_pos[36], flash_11s_pos;
+static LPD3DXFONT fonts[16];
+static POINT mousepos;
+static HFONT hfonts[16];
 
-DWORD tick = 16, score, hiscore, bnsgoal, elevens;
+static DWORD tick = 16, score, hiscore, bnsgoal, elevens;
 
-byte cards[23], deck[0x7ffffff], timer, timeleft = 36, curnum, timerInterval, level = 0, maxlvl, bonuslvl, curdeckcard, speedbns;
+static byte cards[23], deck[0x7ffffff], deckleft, timer, timeleft = 36, curnum, timerInterval, level = 0, maxlvl, bonuslvl, curdeckcard, speedbns;
 
-bool cardexists[23], deckcardexists[0x7ffffff], selcards[23], matchedcards[23], LMB, matched, won, flash11s = false, bnsround;
+static bool cardexists[23], selcards[23], matchedcards[23], LMB, matched, won, flash11s = false, bnsround, stopcounting11s, noclip, debugdraw, debugdrawcard;//, hinting, hint[23];
 
-unsigned int seed, seedampmin, seedampmax, seedamp, deckleft, decksize;
+static unsigned int seed, seedampmin, seedampmax, seedamp, decksize, decksizeorig;
 
-unsigned long long frame, pause, lastTick;
+static unsigned long long frame, pause, lastTick;
 
-std::stringstream stringstream;
+static std::stringstream stringstream;
 
-LPCSTR title = "11UP", flipcardSnd = "FLIPCARD.WAV", errorSnd = "ERROR.WAV";
+static LPCSTR title = "11UP", ini, flipcardSnd = "FLIPCARD.WAV", errorSnd = "ERROR.WAV";
 
-std::string customCards = "", ini;
+static std::string customCards = "", customDeck = "", newscore = "";
 
 /*
 #define CARD_ACE			0b000000
@@ -52,69 +52,71 @@ std::string customCards = "", ini;
 #define CARD_SUIT_SPADES	0b010000
 #define CARD_SUIT_HEARTS	0b100000
 #define CARD_SUIT_DIAMONDS	0b110000
+
+#define CARD_NONE           0b11111111
 */
 
-LPDIRECT3D9 d3d;
-LPDIRECT3DDEVICE9 d3ddev;
+static LPDIRECT3D9 d3d;
+static LPDIRECT3DDEVICE9 d3ddev;
 
-void initD3D(HWND hWnd);
-void render_frame(void);
-void cleanD3D(void);
-void playSnd(LPCSTR fname);
-void NewTexture(LPCSTR fname, D3DFORMAT fmt, LPDIRECT3DTEXTURE9 *tex);
-void drawText(int i, LPSTR text, int left, int top, int right, int bottom, D3DCOLOR COLOR);
+static void initD3D(HWND hWnd);
+static void render_frame(void);
+static void cleanD3D(void);
+static void playSnd(LPCSTR fname);
+static void NewTexture(LPCSTR fname, D3DFORMAT fmt, LPDIRECT3DTEXTURE9 *tex);
+static void drawText(int i, LPSTR text, int left, int top, int right, int bottom, D3DCOLOR COLOR);
 
-int random(int min, int max)
+static int random(int min, int max)
 {
 	return rand() % max + min;
 }
 
-void drawText(int i, LPSTR text, int left, int top, int right, int bottom, D3DCOLOR COLOR)
+static void drawText(int i, LPSTR text, int left, int top, int right, int bottom, D3DCOLOR COLOR)
 {
 	rect.left = left;
 	rect.right = right;
 	rect.top = top;
 	rect.bottom = bottom;
-	fonts[i]->DrawTextA(text,-1,&rect,NULL,COLOR);
+	fonts[i]->DrawTextA(text, -1, &rect, NULL, COLOR);
 }
 
-void playSnd(LPCSTR fname)
+static void playSnd(LPCSTR fname)
 {
 	PlaySound(fname,
 		GetModuleHandle(NULL),
 		SND_ASYNC | SND_FILENAME | SND_NOWAIT);
 }
 
-void NewTexture(LPCSTR fname, D3DFORMAT fmt, LPDIRECT3DTEXTURE9 *tex)
+static void NewTexture(LPCSTR fname, D3DFORMAT fmt, LPDIRECT3DTEXTURE9 *tex)
 {
 	D3DXCreateTextureFromFileEx(d3ddev, fname, D3DX_DEFAULT_NONPOW2, D3DX_DEFAULT_NONPOW2,
 		D3DX_DEFAULT, 0, fmt, D3DPOOL_DEFAULT, D3DX_DEFAULT,
-		D3DX_DEFAULT, D3DCOLOR_XRGB(255,0,255), NULL, NULL, tex);
+		D3DX_DEFAULT, D3DCOLOR_XRGB(255, 0, 255), NULL, NULL, tex);
 }
 
-std::string workingdir()
+static std::string workingdir()
 {
 	char buf[256];
 	GetCurrentDirectoryA(256, buf);
 	return std::string(buf) + '\\';
 }
 
-std::string get_profile_string(LPCSTR name, LPCSTR key, LPCSTR def, LPCSTR filename)
+static std::string get_profile_string(LPCSTR name, LPCSTR key, LPCSTR def, LPCSTR filename)
 {
 	char temp[1024];
 	int result = GetPrivateProfileString(name, key, def, temp, sizeof(temp), filename);
 	return std::string(temp, result);
 }
 
-LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
-int WINAPI WinMain(HINSTANCE hInstance,
+static int WINAPI WinMain(HINSTANCE hInstance,
 	HINSTANCE hPrevInstance,
 	LPSTR lpCmdLine,
 	int nCmdShow)
 {
-	HWND hWnd;
-	WNDCLASSEX wc;
+	static HWND hWnd;
+	static WNDCLASSEX wc;
 
 	ZeroMemory(&wc, sizeof(WNDCLASSEX));
 
@@ -145,23 +147,27 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 	initD3D(hWnd);
 
-	stringstream << workingdir().c_str() << + "\\GAME.INI";
+	stringstream << workingdir() << + "\\GAME.INI";
 
-	ini = stringstream.str();
+	ini = const_cast<char *>(stringstream.str().c_str());
 
-	stringstream.str("");
-
-	seed = GetPrivateProfileInt(title, "Seed", GetTickCount(), const_cast<char *>(ini.c_str()));
-	seedampmin = GetPrivateProfileInt(title, "SeedAmpMin", 1, const_cast<char *>(ini.c_str()));
-	seedampmax = GetPrivateProfileInt(title, "SeedAmpMax", 1, const_cast<char *>(ini.c_str()));
+	seed = GetPrivateProfileInt(title, "Seed", GetTickCount(), ini);
+	seedampmin = GetPrivateProfileInt(title, "SeedAmpMin", 1, ini);
+	seedampmax = GetPrivateProfileInt(title, "SeedAmpMax", 1, ini);
 	seedamp = int(rand() * seedampmax + seedampmin);
-	tick = GetPrivateProfileInt(title, "TickRate", 16, const_cast<char *>(ini.c_str()));
-	hiscore = GetPrivateProfileInt(title, "Hiscore", 50000, const_cast<char *>(ini.c_str()));
-	maxlvl = GetPrivateProfileInt(title, "Rounds", 2, const_cast<char *>(ini.c_str()));
-	decksize = GetPrivateProfileIntA(title, "DeckSize", 30, const_cast<char *>(ini.c_str()));
-	bnsgoal = GetPrivateProfileIntA(title, "BonusGoal", 80000, const_cast<char *>(ini.c_str()));
-	customCards = get_profile_string(title, "Nonrand", "", const_cast<char *>(ini.c_str()));
+	tick = GetPrivateProfileInt(title, "TickRate", 16, ini);
+	hiscore = GetPrivateProfileInt(title, "Hiscore", 50000, ini);
+	maxlvl = GetPrivateProfileInt(title, "Rounds", 2, ini);
+	decksize = GetPrivateProfileIntA(title, "DeckSize", 30, ini);
+	bnsgoal = GetPrivateProfileIntA(title, "BonusGoal", 80000, ini);
+	customCards = get_profile_string(title, "Nonrand", "", ini);
+	customDeck = get_profile_string(title, "NonrandDeck", "", ini);
+	noclip = GetPrivateProfileInt(title, "Noclip", 0, ini);
+	debugdraw = GetPrivateProfileInt(title, "DebugInfo", 0, ini);
+	debugdrawcard = GetPrivateProfileInt(title, "DebugInfoCard", 0, ini);
+	//hinting = GetPrivateProfileInt(title, "Hints", 0, ini);
 	curdeckcard = decksize;
+	decksizeorig = decksize;
 
 	timer = 36;
 
@@ -169,7 +175,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 	srand(seed*seedamp);
 
-	MSG msg;
+	static MSG msg;
 
 	while (TRUE)
 	{
@@ -196,6 +202,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 {
 	switch (message)
 	{
+	case WM_QUIT:
+	case WM_CLOSE:
 	case WM_DESTROY:
 	{
 		PostQuitMessage(score);
@@ -247,8 +255,7 @@ void initD3D(HWND hWnd)
 
 	NewTexture("BACK.DDS", D3DFMT_R5G6B5, &textures[0]);
 	NewTexture("CARD.DDS", D3DFMT_A1R5G5B5, &textures[1]);
-	NewTexture("TIMER.DDS", D3DFMT_A1R5G5B5, &textures[2]);
-	NewTexture("11SFLASH.DDS", D3DFMT_A1R5G5B5, &textures[3]);
+	NewTexture("11SFLASH.DDS", D3DFMT_A1R5G5B5, &textures[2]);
 
 	D3DXCreateSprite(d3ddev, &drawing);
 
@@ -259,27 +266,27 @@ void initD3D(HWND hWnd)
 
 	lastTick = GetTickCount() - 16;
 
-	card_rect.left = 66;
-	card_rect.top = 64;
-	card_rect.right = 132;
-	card_rect.bottom = 147;
+	card_rect.left = 56;
+	card_rect.top = 59;
+	card_rect.right = 122;
+	card_rect.bottom = 142;
 
 	for (int i = 0; i < 10; i++)
 		for (int j = 0; j < 2; j++)
 		{
-			card_rect_num[i * 2 + j].top = i * 27;
-			card_rect_num[i * 2 + j].left = j * 33;
-			card_rect_num[i * 2 + j].right = card_rect_num[i * 2 + j].left + 33;
-			card_rect_num[i * 2 + j].bottom = card_rect_num[i * 2 + j].top + 27;
+			card_rect_num[i * 2 + j].top = i * 22;
+			card_rect_num[i * 2 + j].left = j * 28;
+			card_rect_num[i * 2 + j].right = card_rect_num[i * 2 + j].left + 28;
+			card_rect_num[i * 2 + j].bottom = card_rect_num[i * 2 + j].top + 22;
 		}
 
 	for (int i = 0; i < 2; i++)
 		for (int j = 0; j < 2; j++)
 		{
-			card_rect_suit[i * 2 + j].top = i * 32;
-			card_rect_suit[i * 2 + j].left = 66 + j * 33;
-			card_rect_suit[i * 2 + j].right = card_rect_suit[i * 2 + j].left + 33;
-			card_rect_suit[i * 2 + j].bottom = card_rect_suit[i * 2 + j].top + 32;
+			card_rect_suit[i * 2 + j].top = i * 29;
+			card_rect_suit[i * 2 + j].left = 56 + j * 26;
+			card_rect_suit[i * 2 + j].right = card_rect_suit[i * 2 + j].left + 26;
+			card_rect_suit[i * 2 + j].bottom = card_rect_suit[i * 2 + j].top + 29;
 		}
 
 	card_pos[0].x = 287;
@@ -351,10 +358,10 @@ void initD3D(HWND hWnd)
 	card_pos[22].x = 331;
 	card_pos[22].y = 359;
 
-	serect.left = 84 - 9;
-	serect.top = 226 - 29;
-	serect.right = serect.left + 9 + 48;
-	serect.bottom = serect.top + 29 + 44;
+	serect.left = 56;
+	serect.top = 225;
+	serect.right = serect.left + 48;
+	serect.bottom = serect.top + 44;
 
 	for (int i = 0; i < 22; i++)
 	{
@@ -364,21 +371,13 @@ void initD3D(HWND hWnd)
 		click_areas[i].bottom = card_pos[i].y + 83;
 	}
 
-	card_rect_next[0].left = 0;
-	card_rect_next[0].top = 270;
-	card_rect_next[0].right = 66;
-	card_rect_next[0].bottom = 312;
+	card_rect_next.left = 56;
+	card_rect_next.top = 142;
+	card_rect_next.right = card_rect_next.left + 66;
+	card_rect_next.bottom = card_rect_next.top + 83;
 
-	card_rect_next[1].left = 66;
-	card_rect_next[1].top = 271;
-	card_rect_next[1].right = 132;
-	card_rect_next[1].bottom = 312;
-
-	card_next_pos[0].x = 244;
-	card_next_pos[0].y = 359;
-
-	card_next_pos[1].x = 244;
-	card_next_pos[1].y = 359 + 42;
+	card_next_pos.x = 244;
+	card_next_pos.y = 359;
 
 	for (int i = 0; i < 23; i++)
 	{
@@ -404,33 +403,30 @@ void initD3D(HWND hWnd)
 	click_areas[24].right = click_areas[24].left + 68;
 	click_areas[24].bottom = click_areas[24].top + 40;
 
-	card_score_rect[0].left = 66;
-	card_score_rect[0].top = 147;
+	card_score_rect[0].top = 220;
 	card_score_rect[0].right = card_score_rect[0].left + 25;
 	card_score_rect[0].bottom = card_score_rect[0].top + 16;
 
-	card_score_rect[1].left = 91;
-	card_score_rect[1].top = 147;
+	card_score_rect[1].left = 25;
+	card_score_rect[1].top = 220;
 	card_score_rect[1].right = card_score_rect[1].left + 28;
 	card_score_rect[1].bottom = card_score_rect[1].top + 16;
 
-	card_score_rect[2].left = 66;
-	card_score_rect[2].top = 163;
+	card_score_rect[2].top = 236;
 	card_score_rect[2].right = card_score_rect[2].left + 28;
 	card_score_rect[2].bottom = card_score_rect[2].top + 16;
 
-	card_score_rect[3].left = 94;
-	card_score_rect[3].top = 163;
+	card_score_rect[3].left = 28;
+	card_score_rect[3].top = 236;
 	card_score_rect[3].right = card_score_rect[3].left + 29;
 	card_score_rect[3].bottom = card_score_rect[3].top + 16;
 
-	card_score_rect[4].left = 66;
-	card_score_rect[4].top = 179;
+	card_score_rect[4].top = 252;
 	card_score_rect[4].right = card_score_rect[4].left + 28;
 	card_score_rect[4].bottom = card_score_rect[4].top + 16;
 
-	card_score_rect[5].left = 94;
-	card_score_rect[5].top = 179;
+	card_score_rect[5].left = 28;
+	card_score_rect[5].top = 252;
 	card_score_rect[5].right = card_score_rect[5].left + 28;
 	card_score_rect[5].bottom = card_score_rect[5].top + 16;
 
@@ -439,127 +435,120 @@ void initD3D(HWND hWnd)
 		card_score_pos[i].x = card_pos[i].x + 20;
 		card_score_pos[i].y = card_pos[i].y + 44;
 	}
-
-	timer_rect_lights[0].left = 0;
-	timer_rect_lights[0].top = 0;
-	timer_rect_lights[0].right = 13;
-	timer_rect_lights[0].bottom = 9;
-
-	timer_rect_lights[1].left = 0;
-	timer_rect_lights[1].top = 9;
-	timer_rect_lights[1].right = 13;
-	timer_rect_lights[1].bottom = 18;
-
-	timer_rect_lights[2].left = 0;
-	timer_rect_lights[2].top = 18;
-	timer_rect_lights[2].right = 13;
-	timer_rect_lights[2].bottom = 27;
+	
+	for (int i = 0; i < 3; i++)
+	{
+		timer_rect_lights[i].left = 104;
+		timer_rect_lights[i].top = 225 + (i * 9);
+		timer_rect_lights[i].right = timer_rect_lights[i].left + 13;
+		timer_rect_lights[i].bottom = timer_rect_lights[i].top + 9;
+	}
 
 	timer_pos[0].x = 504;
 	timer_pos[0].y = 10;
 
 	timer_pos[1].x = timer_pos[0].x + 17;
 	timer_pos[1].y = timer_pos[0].y;
-	
+
 	timer_pos[2].x = timer_pos[1].x + 17;
 	timer_pos[2].y = timer_pos[1].y;
-	
+
 	timer_pos[3].x = timer_pos[2].x + 17;
 	timer_pos[3].y = timer_pos[2].y;
-	
+
 	timer_pos[4].x = timer_pos[3].x + 17;
 	timer_pos[4].y = timer_pos[3].y;
-	
+
 	timer_pos[5].x = timer_pos[4].x + 17;
 	timer_pos[5].y = timer_pos[4].y;
-	
+
 	timer_pos[6].x = 504;
 	timer_pos[6].y = 23;
 
 	timer_pos[7].x = timer_pos[6].x + 17;
 	timer_pos[7].y = timer_pos[6].y;
-	
+
 	timer_pos[8].x = timer_pos[7].x + 17;
 	timer_pos[8].y = timer_pos[7].y;
-	
+
 	timer_pos[9].x = timer_pos[8].x + 17;
 	timer_pos[9].y = timer_pos[8].y;
-	
+
 	timer_pos[10].x = timer_pos[9].x + 17;
 	timer_pos[10].y = timer_pos[9].y;
-	
+
 	timer_pos[11].x = timer_pos[10].x + 17;
 	timer_pos[11].y = timer_pos[10].y;
-	
+
 	timer_pos[12].x = 504;
 	timer_pos[12].y = 36;
 
 	timer_pos[13].x = timer_pos[12].x + 17;
 	timer_pos[13].y = timer_pos[12].y;
-	
+
 	timer_pos[14].x = timer_pos[13].x + 17;
 	timer_pos[14].y = timer_pos[13].y;
-	
+
 	timer_pos[15].x = timer_pos[14].x + 17;
 	timer_pos[15].y = timer_pos[14].y;
-	
+
 	timer_pos[16].x = timer_pos[15].x + 17;
 	timer_pos[16].y = timer_pos[15].y;
-	
+
 	timer_pos[17].x = timer_pos[16].x + 17;
 	timer_pos[17].y = timer_pos[16].y;
-	
+
 	timer_pos[18].x = 504;
 	timer_pos[18].y = 49;
 
 	timer_pos[19].x = timer_pos[18].x + 17;
 	timer_pos[19].y = timer_pos[18].y;
-	
+
 	timer_pos[20].x = timer_pos[19].x + 17;
 	timer_pos[20].y = timer_pos[19].y;
-	
+
 	timer_pos[21].x = timer_pos[20].x + 17;
 	timer_pos[21].y = timer_pos[20].y;
-	
+
 	timer_pos[22].x = timer_pos[21].x + 17;
 	timer_pos[22].y = timer_pos[21].y;
-	
+
 	timer_pos[23].x = timer_pos[22].x + 17;
 	timer_pos[23].y = timer_pos[22].y;
-	
+
 	timer_pos[24].x = 504;
 	timer_pos[24].y = 62;
 
 	timer_pos[25].x = timer_pos[24].x + 17;
 	timer_pos[25].y = timer_pos[24].y;
-	
+
 	timer_pos[26].x = timer_pos[25].x + 17;
 	timer_pos[26].y = timer_pos[25].y;
-	
+
 	timer_pos[27].x = timer_pos[26].x + 17;
 	timer_pos[27].y = timer_pos[26].y;
-	
+
 	timer_pos[28].x = timer_pos[27].x + 17;
 	timer_pos[28].y = timer_pos[27].y;
-	
+
 	timer_pos[29].x = timer_pos[28].x + 17;
 	timer_pos[29].y = timer_pos[28].y;
-	
+
 	timer_pos[30].x = 504;
 	timer_pos[30].y = 75;
 
 	timer_pos[31].x = timer_pos[30].x + 17;
 	timer_pos[31].y = timer_pos[30].y;
-	
+
 	timer_pos[32].x = timer_pos[31].x + 17;
 	timer_pos[32].y = timer_pos[31].y;
-	
+
 	timer_pos[33].x = timer_pos[32].x + 17;
 	timer_pos[33].y = timer_pos[32].y;
-	
+
 	timer_pos[34].x = timer_pos[33].x + 17;
 	timer_pos[34].y = timer_pos[33].y;
-	
+
 	timer_pos[35].x = timer_pos[34].x + 17;
 	timer_pos[35].y = timer_pos[34].y;
 
@@ -568,7 +557,7 @@ void initD3D(HWND hWnd)
 
 	flash_11s_rect.left = 0;
 	flash_11s_rect.top = 0;
-	flash_11s_rect.right= 106;
+	flash_11s_rect.right = 106;
 	flash_11s_rect.bottom = 46;
 
 	stringstream.imbue(std::locale(""));
@@ -614,11 +603,19 @@ bool clickedArea(RECT rct)
 void drawCard(int i)
 {
 	drawing->Draw(textures[1], &card_rect, NULL, NULL, 0, &card_pos[i], 0xFFFFFFFF);
+	card_pos[i].x += 4;
+	card_pos[i].y += 4;
 	drawing->Draw(textures[1], &card_rect_num[getCardNum(i) + (((cards[i] >> 5) & 0x01) * 10)], NULL, NULL, 0, &card_pos[i], 0xFFFFFFFF);
+	card_pos[i].x -= 4;
+	card_pos[i].y -= 4;
+	card_suit_pos[i].x += 3;
+	card_suit_pos[i].y += 3;
 	drawing->Draw(textures[1], &card_rect_suit[getCardColor(i)], NULL, NULL, 0, &card_suit_pos[i], 0xFFFFFFFF);
+	card_suit_pos[i].x -= 3;
+	card_suit_pos[i].y -= 3;
 }
 
-void selectCard(int i)
+static void selectCard(int i)
 {
 	if (cardexists[i])
 		if (!selcards[i] && curnum + getCardNum(i) < 11)
@@ -636,34 +633,42 @@ void selectCard(int i)
 	LMB = false;
 }
 
-void flipCard()
+static void flipCard()
 {
-	if (curdeckcard > 0)
+	if (decksize > 0)
 	{
-		curdeckcard--;
 		for (int i = 0; i < 23; i++)
 			selcards[i] = 0;
 		for (int i = 0; i < 22; i++)
 			if (!cardexists[i])
 			{
+				deck[curdeckcard] = 255;
+				decksize--;
 				cards[i] = cards[22];
+				if (score > 500) score -= 500; else score = 0;
 				cardexists[i] = true;
 				break;
 			}
+		curdeckcard++;
+		if (curdeckcard >= decksizeorig)
+			curdeckcard = 0;
+		while (deck[curdeckcard] == 255 && decksize > 0)
+		{
+			curdeckcard++;
+			if (curdeckcard >= decksizeorig)
+				curdeckcard = 0;
+		}
 		playSnd(flipcardSnd);
-
 		cards[22] = deck[curdeckcard];
 	}
-	else
-		curdeckcard = decksize;
 }
 
-bool ifSelectedCard(int i)
+static bool ifSelectedCard(int i)
 {
 	return clickedArea(click_areas[i]) && cardexists[i];
 }
 
-void render_frame(void)
+static void render_frame(void)
 {
 	stringstream.str("");
 
@@ -684,11 +689,16 @@ void render_frame(void)
 	for (int i = 0; i < 23; i++)
 	{
 		if (frame >= 130 + (4 * i))
-			if (cardexists[i])
+			if (cardexists[i] && cards[i] != 255)
 			{
 				drawCard(i);
-				if (selcards[i])
+				if (selcards[i]) {
+					card_pos[i].x += 9;
+					card_pos[i].y += 29;
 					drawing->Draw(textures[1], &serect, NULL, NULL, 0, &card_pos[i], 0xFFFFFFFF);
+					card_pos[i].x -= 9;
+					card_pos[i].y -= 29;
+				}
 			}
 		if (matchedcards[i])
 		{
@@ -746,6 +756,8 @@ void render_frame(void)
 		stringstream << int(speedbns * 150);
 		drawText(4, const_cast<char *>(stringstream.str().c_str()), 507, 60, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
 		stringstream.str("");
+		if (frame < ULLONG_MAX - 0x200)
+			frame = ULLONG_MAX - 0xff;
 	}
 
 	if (timer == 0 && timeleft == 0)
@@ -755,20 +767,21 @@ void render_frame(void)
 	}
 
 	if (frame >= ULLONG_MAX - 0xffffff && frame <= ULLONG_MAX - 0xfffff8)
-		drawText(4, "TIME'S\n  UP!", 510, 12, 640, 480, D3DCOLOR_XRGB(255, 0, 0));
+		drawText(4, "TIME'S\n  UP!", 503, 8, 640, 480, D3DCOLOR_XRGB(255, 0, 0));
 
 	if (frame == ULLONG_MAX - 0xfffffa)
 	{
 		won = false;
-		PlaySoundA("TIMESUP.WAV", NULL, SND_FILENAME);
+		PlaySoundA("HURRYUP.WAV", NULL, SND_FILENAME);
+		Sleep(2500);
 		frame = ULLONG_MAX - 0xff;
 	}
 
-	if (frame == ULLONG_MAX - 0xfff)
+	if (frame == ULLONG_MAX - 0xfff && won)
 	{
-		if (curdeckcard > 0 && won)
+		if (decksize > 0)
 		{
-			curdeckcard--;
+			decksize--;
 			score += 1000;
 			playSnd("DECKBONUS.WAV");
 			frame -= 4;
@@ -778,9 +791,9 @@ void render_frame(void)
 	}
 
 	if (flash11s)
-		drawing->Draw(textures[3], &flash_11s_rect, NULL, NULL, 0, &flash_11s_pos, 0xFFFFFFFF);
+		drawing->Draw(textures[2], &flash_11s_rect, NULL, NULL, 0, &flash_11s_pos, 0xFFFFFFFF);
 
-	if (frame == ULLONG_MAX - 0xff)
+	if (frame >= ULLONG_MAX - 0xff && frame <= ULLONG_MAX - 0xf0 && !stopcounting11s)
 	{
 		if (elevens > 0)
 		{
@@ -792,18 +805,20 @@ void render_frame(void)
 		}
 		else
 		{
-			flash11s = false;
-			PlaySoundA("NULL.WAV", NULL, SND_FILENAME | SND_ASYNC | SND_LOOP);
-			PlaySoundA("COUNT11UPSTOP.WAV", NULL, SND_FILENAME);
-			if (level < maxlvl)
-			{
-				frame = 10;
-				for (int i = 0; i < 23; i++)
-					cardexists[i] = true;
-				level++;
+			if (frame >= ULLONG_MAX - 0xf1) {
+				flash11s = false;
+				PlaySoundA("COUNT11UPSTOP.WAV", NULL, SND_FILENAME);
+				stopcounting11s = true;
+				if (level < maxlvl)
+				{
+					frame = 10;
+					for (int i = 0; i < 23; i++)
+						cardexists[i] = true;
+					level++;
+				}
+				else
+					frame = ULLONG_MAX - 4;
 			}
-			else
-				frame = ULLONG_MAX - 4;
 		}
 	}
 
@@ -835,17 +850,8 @@ void render_frame(void)
 			drawText(1, "AWARDED", 200, 260, 640, 480, D3DCOLOR_XRGB(255, 0, 0));
 	}
 
-	if (score > hiscore)
-	{
-		stringstream.str("");
-		stringstream.clear();
-		stringstream.imbue(std::locale());
-		stringstream << score;
-		WritePrivateProfileString("11UP", "Hiscore", stringstream.str().c_str(), const_cast<char *>(ini.c_str()));
-		stringstream.str("");
-		stringstream.imbue(std::locale(""));
-		hiscore = score;
-	}
+	//if (GetAsyncKeyState(VK_SPACE))
+		//frame = ULLONG_MAX - 4;
 
 	if (frame == ULLONG_MAX - 0xffffa)
 	{
@@ -869,11 +875,22 @@ void render_frame(void)
 		won = true;
 		frame = ULLONG_MAX - 0xfffff;
 	}
-	
-	if (frame > 130 + (4 * 22))
+
+	if (frame > 130 + (4 * 22) || level > 0)
 	{
+		drawText(0, " TOUCH CARD TO SELECT.\nTOUCH AGAIN TO CANCEL.", 22, 434, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
+		drawText(0, " TAKE\nSCORE", 549, 124, 640, 480, D3DCOLOR_XRGB(255, 255, 255));
+		stringstream.str("");
 		stringstream << score;
 		drawText(2, const_cast<char *>(stringstream.str().c_str()), 86, 6, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
+		stringstream.str("");
+		stringstream.imbue(std::locale("C"));
+		if (score < hiscore)
+			stringstream << hiscore;
+		else
+			stringstream << score;
+		newscore = (stringstream.str().c_str());
+		stringstream.imbue(std::locale(""));
 		stringstream.str("");
 		if (score < hiscore)
 			stringstream << hiscore;
@@ -899,54 +916,47 @@ void render_frame(void)
 		stringstream << int(curnum);
 		drawText(2, const_cast<char *>(stringstream.str().c_str()), 313, 312, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
 		stringstream.str("");
-		stringstream << int(curdeckcard);
+		stringstream << int(decksize);
 		drawText(2, const_cast<char *>(stringstream.str().c_str()), 206, 390, 640, 480, 0xFFFFFFFF);
 		stringstream.str("");
-		if (curdeckcard > 0)
+		if (decksize > 0)
 		{
-			drawing->Draw(textures[1], &card_rect_next[0], NULL, NULL, 0, &card_next_pos[0], 0xFFFFFFFF);
-			drawing->Draw(textures[1], &card_rect_next[1], NULL, NULL, 0, &card_next_pos[1], 0xFFFFFFFF);
+			drawing->Draw(textures[1], &card_rect_next, NULL, NULL, 0, &card_next_pos, 0xFFFFFFFF);
 		}
-		for (int i = 35; i > 35 - timer; i--)
+		if (frame > 130 + (4 * 22))
 		{
-			int j;
-			if (i > 29 && i <= 35)
-				j = 2;
-			else if (i > 23 && i <= 29)
-				j = 1;
-			else
-				j = 0;
-			drawing->Draw(textures[2], &timer_rect_lights[j], NULL, NULL, 0, &timer_pos[i], 0xFFFFFFFF);
-		}
-		if (frame < ULLONG_MAX - 0xfffff && timer > 0)
-			if (timerInterval > 0)
-				timerInterval--;
-			else
+			for (int i = 35; i > 35 - timer; i--)
 			{
-				timer--;
-				timerInterval = 2500 / tick;
-				if (timer == 6)
-					playSnd("HURRYUP.WAV");
+				int j;
+				if (i > 29 && i <= 35)
+					j = 2;
+				else if (i > 23 && i <= 29)
+					j = 1;
+				else
+					j = 0;
+				drawing->Draw(textures[1], &timer_rect_lights[j], NULL, NULL, 0, &timer_pos[i], 0xFFFFFFFF);
 			}
+			if (frame < ULLONG_MAX - 0xfffff && timer > 0)
+				if (timerInterval > 0)
+					timerInterval--;
+				else
+				{
+					timer--;
+					timerInterval = 2500 / tick;
+					if (timer == 6)
+						playSnd("HURRYUP.WAV");
+				}
+		}
 	}
-
-	fonts[0]->Begin();
-
-	stringstream << "Framerate: " << 1000 / tick << "\nTickrate: " << tick << "\nFrame: " << frame << "\nSeed: " << seed << "\nSeed Amplified (" << seedampmin << "-" << seedampmax << "x):\n" << seed*seedamp << "\nLevel: " << int(level) << "\nMax Levels: " << int(maxlvl) << "\nBonus Round: " << bnsround << "\nDeck Size: " << int(curdeckcard) << " / " << decksize << "\nGame Timer: " << int(timer) << "\nElevens: " << int(elevens) << "\nMouse Position: " << mousepos.x << ", " << mousepos.y << "\nSelected cards: ";
-	for (int i = 0; i < 23; i++)
-		stringstream << selcards[i];
-	stringstream << "\nPause Frames: " << int(pause);
-	for (int i = 0; i < 23; i++)
-		stringstream << " \nCard " << i << ": " << ((cards[i] >> 0) & 0x01) + getCardNum(i) << " / " << ((cards[i] >> 5) & 0x01) << ((cards[i] >> 4) & 0x01) << " " << ((cards[i] >> 3) & 0x01) << ((cards[i] >> 2) & 0x01) << ((cards[i] >> 1) & 0x01) << ((cards[i] >> 0) & 0x01);
-	drawText(0, const_cast<char *>(stringstream.str().c_str()), 0, 0, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
-	stringstream.str("");
-
-	fonts[0]->End();
 
 	fonts[1]->Begin();
 
 	if (frame == 10)
 	{
+		won = false;
+		stopcounting11s = false;
+		decksize = decksizeorig;
+		curdeckcard = 0;
 		for (byte i = 0; i < 23; i++)
 		{
 			if (customCards == "")
@@ -960,9 +970,15 @@ void render_frame(void)
 			selcards[i] = false;
 		}
 		for (int i = 0; i < decksize; i++)
-			deck[i] = random(0, 10);
-		speedbns = 0;
-		curdeckcard = decksize;
+			if (customDeck == "")
+				deck[i] = random(0, 10) + (16 * random(0, 4));
+			else
+				if (customDeck[i] != NULL)
+					if (customDeck[i] != 'X')
+						deck[i] = customDeck[i] - 0x30;
+					else
+						deck[i] = 10;
+		cards[22] = deck[0];
 		timer = 36;
 		timeleft = 36;
 	}
@@ -1015,11 +1031,6 @@ void render_frame(void)
 
 	if (pause == 2)
 	{
-		if (matchedcards[23] && false)
-		{
-			deckcardexists[curdeckcard] = false;
-			curdeckcard--;
-		}
 		for (int i = 0; i < 23; i++)
 			if (matchedcards[i] && cardexists[i])
 			{
@@ -1028,7 +1039,27 @@ void render_frame(void)
 					cardexists[i] = false;
 				else
 				{
-					cards[22] = deck[curdeckcard];
+					if (decksize > 0)
+					{
+						deck[curdeckcard] = 255;
+						decksize--;
+						curdeckcard++;
+						if (decksize > 0) {
+							if (curdeckcard >= decksizeorig)
+								curdeckcard = 0;
+							while (deck[curdeckcard] == 255 && decksize > 0)
+							{
+								curdeckcard++;
+								if (curdeckcard >= decksizeorig)
+									curdeckcard = 0;
+							}
+							cards[22] = deck[curdeckcard];
+						}
+						if (decksize == 0)
+							cardexists[22] = false;
+					}
+					else
+						cardexists[22] = false;
 				}
 				matchedcards[i] = false;
 			}
@@ -1055,73 +1086,73 @@ void render_frame(void)
 			selectCard(20);
 
 		if (ifSelectedCard(19))
-			if (!cardexists[21])
+			if (!cardexists[21] || noclip)
 				selectCard(19);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(18))
-			if (!cardexists[21])
+			if (!cardexists[21] || noclip)
 				selectCard(18);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(17))
-			if (!cardexists[20])
+			if (!cardexists[20] || noclip)
 				selectCard(17);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(16))
-			if (!cardexists[20])
+			if (!cardexists[20] || noclip)
 				selectCard(16);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(15))
-			if (!cardexists[19])
+			if (!cardexists[19] || noclip)
 				selectCard(15);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(14))
-			if (!cardexists[18] && !cardexists[19])
+			if ((!cardexists[18] && !cardexists[19]) || noclip)
 				selectCard(14);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(13))
-			if (!cardexists[18])
+			if (!cardexists[18] || noclip)
 				selectCard(13);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(12))
-			if (!cardexists[17])
+			if (!cardexists[17] || noclip)
 				selectCard(12);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(11))
-			if (!cardexists[16] && !cardexists[17])
+			if ((!cardexists[16] && !cardexists[17]) || noclip)
 				selectCard(11);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(10))
-			if (!cardexists[16])
+			if (!cardexists[16] || noclip)
 				selectCard(10);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(9))
-			if (!cardexists[14] && !cardexists[15])
+			if ((!cardexists[14] && !cardexists[15]) || noclip)
 				selectCard(9);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(8))
-			if (!cardexists[13] && !cardexists[14])
+			if ((!cardexists[13] && !cardexists[14]) || noclip)
 				selectCard(8);
 			else
 				playSnd(errorSnd);
@@ -1130,48 +1161,48 @@ void render_frame(void)
 			selectCard(7);
 
 		if (ifSelectedCard(6))
-			if (!cardexists[11] && !cardexists[12])
+			if ((!cardexists[11] && !cardexists[12]) || noclip)
 				selectCard(6);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(5))
-			if (!cardexists[10] && !cardexists[11])
+			if ((!cardexists[10] && !cardexists[11]) || noclip)
 				selectCard(5);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(4))
-			if (!cardexists[8] && !cardexists[9])
+			if ((!cardexists[8] && !cardexists[9]) || noclip)
 				selectCard(4);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(3))
-			if (!cardexists[7])
+			if ((!cardexists[7] && !cardexists[13]) || noclip)
 				selectCard(3);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(2))
-			if (!cardexists[7])
+			if ((!cardexists[7] && !cardexists[12]) || noclip)
 				selectCard(2);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(1))
-			if (!cardexists[5] && !cardexists[6])
+			if ((!cardexists[5] && !cardexists[6]) || noclip)
 				selectCard(1);
 			else
 				playSnd(errorSnd);
 
 		if (ifSelectedCard(0))
-			if (!cardexists[2] && !cardexists[3])
+			if ((!cardexists[2] && !cardexists[3]) || noclip)
 				selectCard(0);
 			else
 				playSnd(errorSnd);
 	}
-		
+
 	switch (frame)
 	{
 	case 10:
@@ -1204,6 +1235,23 @@ void render_frame(void)
 		break;
 	}
 
+	fonts[0]->Begin();
+
+	if (debugdraw)
+	{
+		stringstream << "Framerate: " << 1000 / tick << "\nTickrate: " << tick << "\nFrame: " << frame << "\nSeed: " << seed << "\nSeed Amplified (" << seedampmin << "-" << seedampmax << "x):\n" << seed*seedamp << "\nScore to Highscore: " << score << " / " << hiscore << "\nLevel: " << int(level) << "\nMax Levels: " << int(maxlvl) << "\nBonus Round: " << bnsround << "\nDeck Size: " << int(curdeckcard) << " / " << decksize /*<< "\nGame Timer: " << int(timer) << "\nElevens: " << int(elevens) */<< "\nMouse Position: " << mousepos.x << ", " << mousepos.y << "\nSelected cards: ";
+		for (int i = 0; i < 23; i++)
+			stringstream << selcards[i];
+		stringstream << "\nPause Frames: " << int(pause);
+		if (debugdrawcard)
+			for (int i = 0; i < 23; i++)
+				stringstream << " \nCard " << i << ": " << ((cards[i] >> 0) & 0x01) + getCardNum(i) << " / " << ((cards[i] >> 5) & 0x01) << ((cards[i] >> 4) & 0x01) << " " << ((cards[i] >> 3) & 0x01) << ((cards[i] >> 2) & 0x01) << ((cards[i] >> 1) & 0x01) << ((cards[i] >> 0) & 0x01);
+		drawText(0, const_cast<char *>(stringstream.str().c_str()), 0, 0, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
+		stringstream.str("");
+	}
+
+	fonts[0]->End();
+
 	drawing->End();
 
 	d3ddev->EndScene();
@@ -1221,15 +1269,25 @@ void render_frame(void)
 		pause--;
 
 	if (GetAsyncKeyState(VK_PAUSE))
-		MessageBox(NULL,"PAUSED","11UP",MB_OK);
+		MessageBox(NULL, "PAUSED", "11UP", MB_OK);
 
 	if (frame >= ULLONG_MAX)
 		exit(score);
 
+	if (score >= hiscore)
+	{
+		stringstream.clear();
+		stringstream.str("");
+		stringstream << workingdir() << +"\\GAME.INI";
+		WritePrivateProfileStringA("11UP", "Hiscore", (newscore.c_str()), stringstream.str().c_str());
+		stringstream.str("");
+		hiscore = score;
+	}
+
 	frame++;
 }
 
-void cleanD3D(void)
+static void cleanD3D(void)
 {
 	d3ddev->Release();
 	d3d->Release();
