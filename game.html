@@ -1,0 +1,94 @@
+<!-- fake emscriptem kek -->
+<!DOCTYPE HTML>
+<html lang="en">
+    <head>
+        <style>
+            html, body, canvas {
+                width: 640px;
+                height: 480px;
+				top: 0px;
+				left: 0px;
+            }
+			html {
+				background-color: #000; background-position: 0 0; background-repeat: no-repeat;
+				background-image: url(https://donnaken15.github.io/11UP/BACKDROP.PNG);
+			}
+			* {
+                padding: 0;
+                margin: 0;
+                overflow-x: hidden;
+                overflow-y: hidden;
+                overflow: hidden;
+				user-select: none;
+			}
+        </style>
+        <meta charset="ascii"/>
+        <meta name="keywords" content="11up, megatouch"/>
+        <meta name="description" content="Play Megatouch 11UP on the web"/>
+        <meta name="subject" content="Play Megatouch 11UP on the web">
+        <meta name="copyright"content="(C) Merit 19XX-20XX">
+        <meta name="language" content="EN">
+        <meta name="robots" content="index,follow" />
+        <meta name="Classification" content="Video Game">
+        <meta name="author" content="donnaken15, wesley@gmx.it">
+        <meta name="designer" content="donnaken15, Merit">
+        <meta name="reply-to" content="wesley@gmx.it">
+        <meta name="owner" content="Merit">
+        <meta name="url" content="https://donnaken15.github.io/11UP/web/index.html">
+        <meta name="identifier-URL" content="https://donnaken15.github.io/11UP/web/index.html">
+        <meta name="directory" content="submission">
+        <meta name="category" content="Game simulation">
+        <meta name="coverage" content="Worldwide">
+        <meta name="distribution" content="Global">
+        <meta name="rating" content="General">
+        <meta http-equiv="Expires" content="0">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Cache-Control" content="no-cache">
+        <meta name="og:title" content="11UP"/>
+        <meta name="og:type" content="game"/>
+        <meta name="og:url" content="https://donnaken15.github.io/11UP/web/index.html"/>
+        <meta name="og:site_name" content="11UP"/>
+        <meta name="og:description" content="Play Megatouch 11UP on the web"/>
+        <title>11UP</title>
+        <canvas id="game" onmousemove="getMouse(event)"
+        oncontextmenu="getMouse(event)" onclick="getMouse(event)"
+        ondblclick="getMouse(event)" onmousedown="getMouse(event)"
+        onmouseenter="getMouse(event)" onmouseleave="getMouse(event)"
+        onmouseover="getMouse(event)" onmouseup="getMouse(event)"
+        ontouchstart="getMouse(event)" ontouchmove="getMouse(event)"
+        ontouchend="getMouse(event)" click="getMouse(event)"
+        width="640" height="480"></canvas>
+        <script>
+            var score = 0, hiscore = 0, bnsgoal, elevens, title = "11UP",
+                level = 0, cards = [] /* 23 */, deck = [] /* 8192 */,
+                deckleft, timer, timeleft = 36, curnum, maxlvl, bonuslvl,
+                curdeckcard, speedbns, cardexists = [] /* 2 */,
+				params = new URL(window.location.href).searchParams,
+                selcards = [] /* 2 */, matchedcards = [] /* 2 */,
+                matched, won, flash11s, stopcounting11s, noclip, seed,
+                debugdraw, debugdrawcard, frame, pause, drawmode = 1;
+			function getMouse(event) { mouse = event; }
+			function die(err) {
+				switch (err) {
+					case 0:
+						throw null;
+					case 5:
+						throw 'invalid drawmode';
+				}
+				window.stop();
+				window.close();
+			}
+			// draw modes, 0 : dom, 1 : canvas
+			if (params.get('drawmode') !== null)
+				{ if (parseInt(params.get('drawmode')) < 2) {
+				drawmode = parseInt(params.get('drawmode')); } }
+			if (drawmode) {
+                var canvas = document.getElementById("game"),
+                ctx = canvas.getContext("2d"); }
+            
+        </script>
+    </head>
+    <body>
+
+    </body>
+</html>

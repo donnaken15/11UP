@@ -1,4 +1,4 @@
-#include <d3d9.h>
+#include "d3d9.h"
 #include "d3dx9.h"
 #include <iostream>
 #include <sstream>
@@ -20,19 +20,21 @@ static LPD3DXFONT fonts[16];
 static POINT mousepos;
 static HFONT hfonts[16];
 
-static DWORD tick = 16, score, hiscore, bnsgoal, elevens;
+static DWORD tick = 16, score, hiscore, bnsgoal, elevens, timerInterval, timeIntMS;
 
-static byte cards[23], deck[0x7ffffff], deckleft, timer, timeleft = 36, curnum, timerInterval, level = 0, maxlvl, bonuslvl, curdeckcard, speedbns;
+static byte cards[23], deckleft, timer, timeleft, curnum, level = 0, maxlvl, bonuslvl, speedbns, cheats, deck[8192];
 
-static bool cardexists[23], selcards[23], matchedcards[23], LMB, matched, won, flash11s = false, bnsround, stopcounting11s, noclip, debugdraw, debugdrawcard;//, hinting, hint[23];
+static bool cardexists[23], selcards[23], matchedcards[23], LMB, matched, won, flash11s = false, bnsround, stopcounting11s, paused, checkforwin, sound, pressedpause;//, hinting, hint[23];
 
-static unsigned int seed, seedampmin, seedampmax, seedamp, decksize, decksizeorig;
+static unsigned int seed, seedampmin, seedampmax, seedamp, decksize, decksizeorig, curdeckcard, lastTick;
 
-static unsigned long long frame, pause, lastTick;
+static unsigned long long frame, pause;
 
 static std::stringstream stringstream;
 
-static LPCSTR title = "11UP", ini, flipcardSnd = "FLIPCARD.WAV", errorSnd = "ERROR.WAV";
+static const LPCSTR title = "11UP", flipcardSnd = "FLIPCARD.WAV", errorSnd = "ERROR.WAV", winroundsnd[2] = {"WINROUND1.WAV","WINROUND2.WAV"};
+
+static LPCSTR ini;
 
 static std::string customCards = "", customDeck = "", newscore = "";
 
@@ -82,10 +84,11 @@ static void drawText(int i, LPSTR text, int left, int top, int right, int bottom
 
 static void playSnd(LPCSTR fname)
 {
-	PlaySound(fname,
-		GetModuleHandle(NULL),
-		SND_ASYNC | SND_FILENAME | SND_NOWAIT);
-}
+	if (sound)
+		PlaySound(fname,
+			GetModuleHandle(NULL),
+			SND_ASYNC | SND_FILENAME | SND_NOWAIT);
+}	
 
 static void NewTexture(LPCSTR fname, D3DFORMAT fmt, LPDIRECT3DTEXTURE9 *tex)
 {
@@ -110,7 +113,7 @@ static std::string get_profile_string(LPCSTR name, LPCSTR key, LPCSTR def, LPCST
 
 static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
-static int WINAPI WinMain(HINSTANCE hInstance,
+int WINAPI WinMain(HINSTANCE hInstance,
 	HINSTANCE hPrevInstance,
 	LPSTR lpCmdLine,
 	int nCmdShow)
@@ -157,19 +160,25 @@ static int WINAPI WinMain(HINSTANCE hInstance,
 	seedamp = int(rand() * seedampmax + seedampmin);
 	tick = GetPrivateProfileInt(title, "TickRate", 16, ini);
 	hiscore = GetPrivateProfileInt(title, "Hiscore", 50000, ini);
-	maxlvl = GetPrivateProfileInt(title, "Rounds", 2, ini);
-	decksize = GetPrivateProfileIntA(title, "DeckSize", 30, ini);
-	bnsgoal = GetPrivateProfileIntA(title, "BonusGoal", 80000, ini);
+	maxlvl = GetPrivateProfileInt(title, "Rounds", 1, ini);
+	decksize = GetPrivateProfileInt(title, "DeckSize", 30, ini);
+	bnsgoal = GetPrivateProfileInt(title, "BonusGoal", 80000, ini);
 	customCards = get_profile_string(title, "Nonrand", "", ini);
 	customDeck = get_profile_string(title, "NonrandDeck", "", ini);
-	noclip = GetPrivateProfileInt(title, "Noclip", 0, ini);
-	debugdraw = GetPrivateProfileInt(title, "DebugInfo", 0, ini);
-	debugdrawcard = GetPrivateProfileInt(title, "DebugInfoCard", 0, ini);
+	cheats |= GetPrivateProfileInt(title, "Noclip", 0, ini) << 0;
+	cheats |= GetPrivateProfileInt(title, "DebugInfo", 0, ini) << 1;
+	cheats |= GetPrivateProfileInt(title, "DebugInfoCard", 0, ini) << 2;
+	sound = GetPrivateProfileInt(title, "Sound", 1, ini);
+	timeIntMS = GetPrivateProfileInt(title, "TimeInterval", 2500, ini);
+	timeleft = GetPrivateProfileInt(title, "Time", 36, ini);
 	//hinting = GetPrivateProfileInt(title, "Hints", 0, ini);
-	curdeckcard = decksize;
-	decksizeorig = decksize;
 
-	timer = 36;
+	__asm {
+		mov eax, decksize
+		mov curdeckcard, eax
+		mov decksizeorig, eax
+		mov timer, 36
+	}
 
 	timerInterval = 1000 / tick;
 
@@ -253,12 +262,12 @@ void initD3D(HWND hWnd)
 	for (int i = 0; i <= 5; i++)
 		D3DXCreateFont(d3ddev, hfonts[i], &fonts[i]);
 
-	NewTexture("BACK.DDS", D3DFMT_R5G6B5, &textures[0]);
-	NewTexture("CARD.DDS", D3DFMT_A1R5G5B5, &textures[1]);
+	NewTexture("BACK.PNG", D3DFMT_R5G6B5, &textures[0]);
+	NewTexture("CARD.PNG", D3DFMT_A1R5G5B5, &textures[1]);
 	NewTexture("11SFLASH.DDS", D3DFMT_A1R5G5B5, &textures[2]);
 
 	D3DXCreateSprite(d3ddev, &drawing);
-
+	
 	rect.top = 0;
 	rect.left = 0;
 	rect.right = 640;
@@ -447,8 +456,13 @@ void initD3D(HWND hWnd)
 	timer_pos[0].x = 504;
 	timer_pos[0].y = 10;
 
-	timer_pos[1].x = timer_pos[0].x + 17;
-	timer_pos[1].y = timer_pos[0].y;
+	for (int i = 0; i < 5; i++)
+	{
+		timer_pos[1+i].x = timer_pos[0+i].x + 17;
+		timer_pos[1+i].y = timer_pos[0+i].y;
+	}
+
+	
 
 	timer_pos[2].x = timer_pos[1].x + 17;
 	timer_pos[2].y = timer_pos[1].y;
@@ -605,12 +619,14 @@ void drawCard(int i)
 	drawing->Draw(textures[1], &card_rect, NULL, NULL, 0, &card_pos[i], 0xFFFFFFFF);
 	card_pos[i].x += 4;
 	card_pos[i].y += 4;
-	drawing->Draw(textures[1], &card_rect_num[getCardNum(i) + (((cards[i] >> 5) & 0x01) * 10)], NULL, NULL, 0, &card_pos[i], 0xFFFFFFFF);
+	if (!paused && !pressedpause)
+		drawing->Draw(textures[1], &card_rect_num[getCardNum(i) + (((cards[i] >> 5) & 0x01) * 10)], NULL, NULL, 0, &card_pos[i], 0xFFFFFFFF);
 	card_pos[i].x -= 4;
 	card_pos[i].y -= 4;
 	card_suit_pos[i].x += 3;
 	card_suit_pos[i].y += 3;
-	drawing->Draw(textures[1], &card_rect_suit[getCardColor(i)], NULL, NULL, 0, &card_suit_pos[i], 0xFFFFFFFF);
+	if (!paused && !pressedpause)
+		drawing->Draw(textures[1], &card_rect_suit[getCardColor(i)], NULL, NULL, 0, &card_suit_pos[i], 0xFFFFFFFF);
 	card_suit_pos[i].x -= 3;
 	card_suit_pos[i].y -= 3;
 }
@@ -670,593 +686,629 @@ static bool ifSelectedCard(int i)
 
 static void render_frame(void)
 {
-	stringstream.str("");
+	if (GetAsyncKeyState(VK_PAUSE) & 0x8000)
+		pressedpause = true;
+	//MessageBox(NULL, "PAUSED", "11UP", MB_OK);
 
-	curnum = 0;
+	if (!paused) {
 
-	for (int i = 0; i < 23; i++)
-		if (selcards[i])
-			curnum += getCardNum(i) + 1;
-
-	d3ddev->Clear(0, NULL, D3DCLEAR_TARGET, 0, 0.0f, 0);
-
-	d3ddev->BeginScene();
-
-	drawing->Begin();
-
-	drawing->Draw(textures[0], NULL, NULL, 0, 0, NULL, 0xFFFFFFFF);
-
-	for (int i = 0; i < 23; i++)
-	{
-		if (frame >= 130 + (4 * i))
-			if (cardexists[i] && cards[i] != 255)
-			{
-				drawCard(i);
-				if (selcards[i]) {
-					card_pos[i].x += 9;
-					card_pos[i].y += 29;
-					drawing->Draw(textures[1], &serect, NULL, NULL, 0, &card_pos[i], 0xFFFFFFFF);
-					card_pos[i].x -= 9;
-					card_pos[i].y -= 29;
-				}
-			}
-		if (matchedcards[i])
-		{
-			{
-				int j;
-				if (i == 0)
-					j = 5;
-				else if (i > 0 && i <= 4)
-					j = 4;
-				else if (i >= 5 && i < 10)
-					j = 3;
-				else if (i >= 10 && i <= 15)
-					j = 2;
-				else if (i >= 16 && i <= 19)
-					j = 1;
-				else
-					j = 0;
-				drawing->Draw(textures[1], &card_score_rect[j], NULL, NULL, 0, &card_score_pos[i], 0xFFFFFFFF);
-			}
-		}
-	}
-
-	if (frame >= ULLONG_MAX - 4)
-	{
-		won = false;
-		drawText(3, "WINNER", 110, 104, 640, 480, D3DCOLOR_XRGB(192, 0, 255));
-		drawText(5, "PLAYER 1", 120, 220, 640, 480, D3DCOLOR_XRGB(0, 255, 0));
-		if (frame == ULLONG_MAX - 1)
-			PlaySoundA("WINNER.WAV", NULL, SND_FILENAME);
-	}
-
-	if (score > bnsgoal && !bnsround)
-	{
-		maxlvl++;
-		bnsround = true;
-	}
-
-	if (frame == ULLONG_MAX - 0xfff0)
-	{
-		if (timer > 0)
-		{
-			timer -= 1;
-			playSnd("SPEEDBONUS.WAV");
-			speedbns += 1;
-			score += 150;
-			frame -= 2;
-		}
-		else
-			frame = ULLONG_MAX - 0xfff;
-	}
-
-	if (frame >= ULLONG_MAX - 0x1002 && timeleft > 0 && timeleft != 127)
-	{
-		drawText(4, "SPEED\nBONUS", 503, 8, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
-		stringstream << int(speedbns * 150);
-		drawText(4, const_cast<char *>(stringstream.str().c_str()), 507, 60, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
 		stringstream.str("");
-		if (frame < ULLONG_MAX - 0x200)
-			frame = ULLONG_MAX - 0xff;
-	}
 
-	if (timer == 0 && timeleft == 0)
-	{
-		timeleft = 127;
-		frame = ULLONG_MAX - 0xffffff;
-	}
+		curnum = 0;
 
-	if (frame >= ULLONG_MAX - 0xffffff && frame <= ULLONG_MAX - 0xfffff8)
-		drawText(4, "TIME'S\n  UP!", 503, 8, 640, 480, D3DCOLOR_XRGB(255, 0, 0));
-
-	if (frame == ULLONG_MAX - 0xfffffa)
-	{
-		won = false;
-		PlaySoundA("HURRYUP.WAV", NULL, SND_FILENAME);
-		Sleep(2500);
-		frame = ULLONG_MAX - 0xff;
-	}
-
-	if (frame == ULLONG_MAX - 0xfff && won)
-	{
-		if (decksize > 0)
-		{
-			decksize--;
-			score += 1000;
-			playSnd("DECKBONUS.WAV");
-			frame -= 4;
-		}
-		else
-			frame = ULLONG_MAX - 0xff;
-	}
-
-	if (flash11s)
-		drawing->Draw(textures[2], &flash_11s_rect, NULL, NULL, 0, &flash_11s_pos, 0xFFFFFFFF);
-
-	if (frame >= ULLONG_MAX - 0xff && frame <= ULLONG_MAX - 0xf0 && !stopcounting11s)
-	{
-		if (elevens > 0)
-		{
-			score += 1000;
-			PlaySoundA("COUNT11UP.WAV", NULL, SND_NOSTOP | SND_FILENAME | SND_ASYNC | SND_LOOP);
-			flash11s = !flash11s;
-			frame -= 15;
-			elevens--;
-		}
-		else
-		{
-			if (frame >= ULLONG_MAX - 0xf1) {
-				flash11s = false;
-				PlaySoundA("COUNT11UPSTOP.WAV", NULL, SND_FILENAME);
-				stopcounting11s = true;
-				if (level < maxlvl)
-				{
-					frame = 10;
-					for (int i = 0; i < 23; i++)
-						cardexists[i] = true;
-					level++;
-				}
-				else
-					frame = ULLONG_MAX - 4;
-			}
-		}
-	}
-
-	if (frame >= ULLONG_MAX - 0xfffff && won)
-	{
-		drawText(1, "LEVEL COMPLETE", 110, 144, 640, 480, D3DCOLOR_XRGB(0, 255, 0));
-		drawText(3, "BONUS!", 120, 190, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
-		drawText(1, "+10,000", 220, 290, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
-		switch (ULLONG_MAX - frame)
-		{
-		case 0xffff9:
-		case 0xffff6:
-		case 0xffff3:
-		case 0xffff0:
-		case 0xffff0 - (3 * 1) :
-		case 0xffff0 - (3 * 2) :
-		case 0xffff0 - (3 * 3) :
-		case 0xffff0 - (3 * 4) :
-		case 0xffff0 - (3 * 5) :
-		case 0xffff0 - (3 * 6) :
-			playSnd("BONUS.WAV");
-			score += 1000;
-			break;
-		case 0xffff0 - (3 * 8) :
-			frame = ULLONG_MAX - 0xfff1;
-			break;
-		}
-		if (frame > ULLONG_MAX - 0xffff3 + (3 * 8))
-			drawText(1, "AWARDED", 200, 260, 640, 480, D3DCOLOR_XRGB(255, 0, 0));
-	}
-
-	//if (GetAsyncKeyState(VK_SPACE))
-		//frame = ULLONG_MAX - 4;
-
-	if (frame == ULLONG_MAX - 0xffffa)
-	{
-		timeleft = timer;
-		playSnd("WINROUND.WAV");
-		Sleep(6922);
-	}
-
-	if (!cardexists[0] && !cardexists[1] &&
-		!cardexists[2] && !cardexists[3] &&
-		!cardexists[4] && !cardexists[5] &&
-		!cardexists[6] && !cardexists[7] &&
-		!cardexists[8] && !cardexists[9] &&
-		!cardexists[10] && !cardexists[11] &&
-		!cardexists[12] && !cardexists[13] &&
-		!cardexists[14] && !cardexists[15] &&
-		!cardexists[16] && !cardexists[17] &&
-		!cardexists[18] && !cardexists[19] &&
-		!cardexists[20] && !cardexists[21] && frame < ULLONG_MAX - 0xfffff)
-	{
-		won = true;
-		frame = ULLONG_MAX - 0xfffff;
-	}
-
-	if (frame > 130 + (4 * 22) || level > 0)
-	{
-		drawText(0, " TOUCH CARD TO SELECT.\nTOUCH AGAIN TO CANCEL.", 22, 434, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
-		drawText(0, " TAKE\nSCORE", 549, 124, 640, 480, D3DCOLOR_XRGB(255, 255, 255));
-		stringstream.str("");
-		stringstream << score;
-		drawText(2, const_cast<char *>(stringstream.str().c_str()), 86, 6, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
-		stringstream.str("");
-		stringstream.imbue(std::locale("C"));
-		if (score < hiscore)
-			stringstream << hiscore;
-		else
-			stringstream << score;
-		newscore = (stringstream.str().c_str());
-		stringstream.imbue(std::locale(""));
-		stringstream.str("");
-		if (score < hiscore)
-			stringstream << hiscore;
-		else
-			stringstream << score;
-		drawText(2, const_cast<char *>(stringstream.str().c_str()), 98, 63, 640, 480, 0xFFFFFFFF);
-		stringstream.str("");
-		if (elevens < 10)
-			stringstream << " ";
-		if (flash11s)
-			drawing->Draw(textures[3], &rect, NULL, NULL, 0, &flash_11s_pos, 0xFFFFFFFF);
-		stringstream << elevens;
-		drawText(2, const_cast<char *>(stringstream.str().c_str()), 135, 119, 640, 480, 0xFFFFFFFF);
-		stringstream.str("");
-		if (level == maxlvl && bnsround)
-			drawText(1, "B", 445, 25, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
-		else
-		{
-			stringstream << level + 1;
-			drawText(1, const_cast<char *>(stringstream.str().c_str()), 445, 25, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
-			stringstream.str("");
-		}
-		stringstream << int(curnum);
-		drawText(2, const_cast<char *>(stringstream.str().c_str()), 313, 312, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
-		stringstream.str("");
-		stringstream << int(decksize);
-		drawText(2, const_cast<char *>(stringstream.str().c_str()), 206, 390, 640, 480, 0xFFFFFFFF);
-		stringstream.str("");
-		if (decksize > 0)
-		{
-			drawing->Draw(textures[1], &card_rect_next, NULL, NULL, 0, &card_next_pos, 0xFFFFFFFF);
-		}
-		if (frame > 130 + (4 * 22))
-		{
-			for (int i = 35; i > 35 - timer; i--)
-			{
-				int j;
-				if (i > 29 && i <= 35)
-					j = 2;
-				else if (i > 23 && i <= 29)
-					j = 1;
-				else
-					j = 0;
-				drawing->Draw(textures[1], &timer_rect_lights[j], NULL, NULL, 0, &timer_pos[i], 0xFFFFFFFF);
-			}
-			if (frame < ULLONG_MAX - 0xfffff && timer > 0)
-				if (timerInterval > 0)
-					timerInterval--;
-				else
-				{
-					timer--;
-					timerInterval = 2500 / tick;
-					if (timer == 6)
-						playSnd("HURRYUP.WAV");
-				}
-		}
-	}
-
-	fonts[1]->Begin();
-
-	if (frame == 10)
-	{
-		won = false;
-		stopcounting11s = false;
-		decksize = decksizeorig;
-		curdeckcard = 0;
-		for (byte i = 0; i < 23; i++)
-		{
-			if (customCards == "")
-				cards[i] = random(0, 10);
-			else
-				if (customCards[i] != 'X')
-					cards[i] = customCards[i] - 0x30;
-				else
-					cards[i] = 10;
-			cards[i] += 16 * random(0, 4);
-			selcards[i] = false;
-		}
-		for (int i = 0; i < decksize; i++)
-			if (customDeck == "")
-				deck[i] = random(0, 10) + (16 * random(0, 4));
-			else
-				if (customDeck[i] != NULL)
-					if (customDeck[i] != 'X')
-						deck[i] = customDeck[i] - 0x30;
-					else
-						deck[i] = 10;
-		cards[22] = deck[0];
-		timer = 36;
-		timeleft = 36;
-	}
-
-	if (frame >= 10 && frame <= 130)
-	{
-		if (level == maxlvl && bnsround)
-			drawText(1, "BONUS ROUND", 140, 200, 600, 400, D3DCOLOR_XRGB(255, 255, 0));
-		else
-		{
-			stringstream << "ROUND " << level + 1;
-			drawText(1, const_cast<char *>(stringstream.str().c_str()), 215, 200, 500, 400, D3DCOLOR_XRGB(255, 255, 0));
-			stringstream.str("");
-		}
-		if (!bnsround && level == maxlvl)
-		{
-			stringstream << "BONUS ROUND AT " << bnsgoal;
-			drawText(4, const_cast<char *>(stringstream.str().c_str()), 160, 270, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
-			stringstream.str("");
-		}
-	}
-
-	fonts[1]->End();
-
-	if (curnum == 11 && pause == 0)
-	{
 		for (int i = 0; i < 23; i++)
 			if (selcards[i])
-				if (i == 0)
-					score += 600;
-				else if (i > 0 && i <= 4)
-					score += 500;
-				else if (i >= 5 && i < 10)
-					score += 400;
-				else if (i >= 10 && i <= 15)
-					score += 300;
-				else if (i >= 16 && i <= 19)
-					score += 200;
-				else
-					score += 100;
+				curnum += getCardNum(i) + 1;
+
+		d3ddev->Clear(0, NULL, D3DCLEAR_TARGET, 0, 0.0f, 0);
+
+		d3ddev->BeginScene();
+
+		drawing->Begin();
+
+		drawing->Draw(textures[0], NULL, NULL, 0, 0, NULL, 0xFFFFFFFF);
+
 		for (int i = 0; i < 23; i++)
 		{
-			matchedcards[i] = selcards[i];
-			selcards[i] = 0;
-		}
-		pause = 10;
-		playSnd("MATCH.WAV");
-		elevens++;
-	}
-
-	if (pause == 2)
-	{
-		for (int i = 0; i < 23; i++)
-			if (matchedcards[i] && cardexists[i])
-			{
-				selcards[i] = false;
-				if (i != 22)
-					cardexists[i] = false;
-				else
+			if (frame >= 130 + (4 * i))
+				if (cardexists[i] && cards[i] != 255)
 				{
-					if (decksize > 0)
+					drawCard(i);
+					if (selcards[i] && !paused && !pressedpause) {
+						card_pos[i].x += 9;
+						card_pos[i].y += 29;
+						drawing->Draw(textures[1], &serect, NULL, NULL, 0, &card_pos[i], 0xFFFFFFFF);
+						card_pos[i].x -= 9;
+						card_pos[i].y -= 29;
+					}
+				}
+			if (matchedcards[i])
+			{
+				{
+					int j;
+					if (i == 0)
+						j = 5;
+					else if (i > 0 && i <= 4)
+						j = 4;
+					else if (i >= 5 && i < 10)
+						j = 3;
+					else if (i >= 10 && i <= 15)
+						j = 2;
+					else if (i >= 16 && i <= 19)
+						j = 1;
+					else
+						j = 0;
+					drawing->Draw(textures[1], &card_score_rect[j], NULL, NULL, 0, &card_score_pos[i], 0xFFFFFFFF);
+				}
+			}
+		}
+
+		if (frame >= ULLONG_MAX - 4)
+		{
+			won = false;
+			drawText(3, "WINNER", 110, 104, 640, 480, D3DCOLOR_XRGB(192, 0, 255));
+			drawText(5, "PLAYER 1", 120, 220, 640, 480, D3DCOLOR_XRGB(0, 255, 0));
+			if (frame == ULLONG_MAX - 1 && sound)
+				PlaySoundA("WINNER.WAV",NULL,SND_FILENAME);
+		}
+
+		if (score > bnsgoal && !bnsround)
+		{
+			maxlvl++;
+			bnsround = true;
+		}
+
+		if (frame == ULLONG_MAX - 0xfff0)
+		{
+			if (timer > 0)
+			{
+				timer -= 1;
+				playSnd("SPEEDBONUS.WAV");
+				speedbns += 1;
+				score += 150;
+				frame -= 2;
+				Sleep(6);
+			}
+			else
+				if (!won)
+					frame = ULLONG_MAX - 0xff;
+				else
+					frame = ULLONG_MAX - 0xfff;
+		}
+
+		if (frame >= ULLONG_MAX - 0x1008 && timeleft > 0 && timeleft != 127)
+		{
+			drawText(4, "SPEED\nBONUS", 503, 8, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
+			stringstream << int(speedbns * 150);
+			drawText(4, const_cast<char *>(stringstream.str().c_str()), 507, 60, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
+			stringstream.str("");
+			if (frame < ULLONG_MAX - 0x200)
+				if (!won)
+					frame = ULLONG_MAX - 0xff;
+				else
+					frame = ULLONG_MAX - 0xfff;
+		}
+
+		if (timer == 0 && timeleft == 0)
+		{
+			timeleft = 127;
+			frame = ULLONG_MAX - 0xffffff;
+		}
+
+		if (frame >= ULLONG_MAX - 0xffffff && frame <= ULLONG_MAX - 0xfffff8)
+			drawText(4, "TIME'S\n  UP!", 503, 8, 640, 480, D3DCOLOR_XRGB(255, 0, 0));
+
+		if (frame == ULLONG_MAX - 0xfffffa && !won)
+		{
+			won = false;
+			if (sound)
+				PlaySoundA("HURRYUP.WAV", NULL, SND_FILENAME);
+			Sleep(2500);
+			frame = ULLONG_MAX - 0xff;
+		}
+
+		if (frame == ULLONG_MAX - 0xfff && won)
+		{
+			if (decksize > 0)
+			{
+				decksize--;
+				score += 1000;
+				playSnd("DECKBONUS.WAV");
+				Sleep(70);
+				frame -= 4;
+			}
+			else
+				frame = ULLONG_MAX - 0xff;
+		}
+
+		if (flash11s)
+			drawing->Draw(textures[2], &flash_11s_rect, NULL, NULL, 0, &flash_11s_pos, 0xFFFFFFFF);
+
+		if (frame >= ULLONG_MAX - 0xff && frame <= ULLONG_MAX - 0xf0 && !stopcounting11s)
+		{
+			if (elevens > 0)
+			{
+				__asm add[score], 1000
+				if (sound)
+					PlaySoundA("COUNT11UP.WAV", NULL, SND_NOSTOP | SND_FILENAME | SND_ASYNC | SND_LOOP);
+				flash11s = !flash11s;
+				frame -= 15;
+				__asm dec[elevens]
+			}
+			else
+			{
+				if (frame >= ULLONG_MAX - 0xf1) {
+					flash11s = false;
+					if (sound)
+						PlaySoundA("COUNT11UPSTOP.WAV", NULL, SND_FILENAME);
+					stopcounting11s = true;
+					if (level < maxlvl)
 					{
-						deck[curdeckcard] = 255;
-						decksize--;
-						curdeckcard++;
-						if (decksize > 0) {
-							if (curdeckcard >= decksizeorig)
-								curdeckcard = 0;
-							while (deck[curdeckcard] == 255 && decksize > 0)
-							{
-								curdeckcard++;
-								if (curdeckcard >= decksizeorig)
-									curdeckcard = 0;
-							}
-							cards[22] = deck[curdeckcard];
-						}
-						if (decksize == 0)
-							cardexists[22] = false;
+						frame = 10;
+						for (int i = 0; i < 23; i++)
+							cardexists[i] = true;
+						level++;
 					}
 					else
-						cardexists[22] = false;
+						frame = ULLONG_MAX - 4;
 				}
-				matchedcards[i] = false;
 			}
-		curnum = 0;
-	}
+		}
 
-	if (frame > 222 && pause == 0 && frame < ULLONG_MAX - 0xfffffff)
-	{
-		timeleft = timer;
+		if (frame >= ULLONG_MAX - 0xfffff && won)
+		{
+			drawText(1, "LEVEL COMPLETE", 110, 144, 640, 480, D3DCOLOR_XRGB(0, 255, 0));
+			drawText(3, "BONUS!", 120, 190, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
+			drawText(1, "+10,000", 220, 290, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
+			switch (ULLONG_MAX - frame)
+			{
+			case 0xffff9:
+			case 0xffff6:
+			case 0xffff3:
+			case 0xffff0:
+			case 0xffff0 - (3 * 1) :
+			case 0xffff0 - (3 * 2) :
+			case 0xffff0 - (3 * 3) :
+			case 0xffff0 - (3 * 4) :
+			case 0xffff0 - (3 * 5) :
+			case 0xffff0 - (3 * 6) :
+				playSnd("BONUS.WAV");
+				score += 1000;
+				break;
+			case 0xffff0 - (3 * 8) :
+				frame = ULLONG_MAX - 0xfff1;
+				break;
+			}
+			if (frame > ULLONG_MAX - 0xffff3 + (3 * 8))
+				drawText(1, "AWARDED", 200, 260, 640, 480, D3DCOLOR_XRGB(255, 0, 0));
+		}
 
-		if (clickedArea(click_areas[23]))
-			flipCard();
+		//if (GetAsyncKeyState(VK_SPACE))
+			//frame = ULLONG_MAX - 4;
 
-		if (clickedArea(click_areas[24]) && timer > 0)
-			frame = ULLONG_MAX - 0xfff1;
+		if (frame == ULLONG_MAX - 0xffffa)
+		{
+			timeleft = timer;
+			for (byte i = 0; i < 4; i++) {
+				playSnd(winroundsnd[0]);
+				Sleep(730);
+				if (i == 1 || i == 3) {
+					playSnd(winroundsnd[1]);
+					Sleep(1234);
+				}
+			}
+			playSnd("WINROUND3.WAV");
+			Sleep(1363);
+			// 6922
+		}
 
-		if (ifSelectedCard(22))
-			selectCard(22);
+		checkforwin = true;
+		for (byte i = 0; i < 22; i++)
+			if (cardexists[i])
+				checkforwin = false;
 
-		if (ifSelectedCard(21))
-			selectCard(21);
+		if (checkforwin && frame < ULLONG_MAX - 0xfffff)
+		{
+			won = true;
+			frame = ULLONG_MAX - 0xfffff;
+		}
 
-		if (ifSelectedCard(20))
-			selectCard(20);
-
-		if (ifSelectedCard(19))
-			if (!cardexists[21] || noclip)
-				selectCard(19);
+		if (frame > 130 + (4 * 22) || level > 0)
+		{
+			drawText(0, " TOUCH CARD TO SELECT.\nTOUCH AGAIN TO CANCEL.", 22, 434, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
+			drawText(0, " TAKE\nSCORE", 549, 124, 640, 480, D3DCOLOR_XRGB(255, 255, 255));
+			stringstream.str("");
+			stringstream << score;
+			drawText(2, const_cast<char *>(stringstream.str().c_str()), 86, 6, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
+			stringstream.str("");
+			stringstream.imbue(std::locale("C"));
+			if (score < hiscore)
+				stringstream << hiscore;
 			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(18))
-			if (!cardexists[21] || noclip)
-				selectCard(18);
+				stringstream << score;
+			newscore = (stringstream.str().c_str());
+			stringstream.imbue(std::locale(""));
+			stringstream.str("");
+			if (score < hiscore)
+				stringstream << hiscore;
 			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(17))
-			if (!cardexists[20] || noclip)
-				selectCard(17);
+				stringstream << score;
+			drawText(2, const_cast<char *>(stringstream.str().c_str()), 98, 63, 640, 480, 0xFFFFFFFF);
+			stringstream.str("");
+			if (elevens < 10)
+				stringstream << " ";
+			if (flash11s)
+				drawing->Draw(textures[3], &rect, NULL, NULL, 0, &flash_11s_pos, 0xFFFFFFFF);
+			stringstream << elevens;
+			drawText(2, const_cast<char *>(stringstream.str().c_str()), 135, 119, 640, 480, 0xFFFFFFFF);
+			stringstream.str("");
+			if (level == maxlvl && bnsround)
+				drawText(1, "B", 445, 25, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
 			else
-				playSnd(errorSnd);
+			{
+				stringstream << level + 1;
+				drawText(1, const_cast<char *>(stringstream.str().c_str()), 445, 25, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
+				stringstream.str("");
+			}
+			stringstream << int(curnum);
+			drawText(2, const_cast<char *>(stringstream.str().c_str()), 313, 312, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
+			stringstream.str("");
+			stringstream << int(decksize);
+			drawText(2, const_cast<char *>(stringstream.str().c_str()), 206, 390, 640, 480, 0xFFFFFFFF);
+			stringstream.str("");
+			if (decksize > 0)
+			{
+				drawing->Draw(textures[1], &card_rect_next, NULL, NULL, 0, &card_next_pos, 0xFFFFFFFF);
+			}
+			if (frame > 130 + (4 * 22))
+			{
+				for (int i = 35; i > 35 - timer; i--)
+				{
+					int j;
+					if (i > 29 && i <= 35)
+						j = 2;
+					else if (i > 23 && i <= 29)
+						j = 1;
+					else
+						j = 0;
+					drawing->Draw(textures[1], &timer_rect_lights[j], NULL, NULL, 0, &timer_pos[i], 0xFFFFFFFF);
+				}
+				if (frame < ULLONG_MAX - 0xfffff && timer > 0)
+					if (timerInterval > 0)
+						timerInterval--;
+					else
+					{
+						timer--;
+						timerInterval = timeIntMS / tick;
+						if (timer == 6)
+							playSnd("HURRYUP.WAV");
+					}
+			}
+		}
 
-		if (ifSelectedCard(16))
-			if (!cardexists[20] || noclip)
-				selectCard(16);
+		fonts[1]->Begin();
+
+		if (frame == 10)
+		{
+			won = false;
+			stopcounting11s = false;
+			decksize = decksizeorig;
+			curdeckcard = 0;
+			for (byte i = 0; i < 23; i++)
+			{
+				if (customCards == "")
+					cards[i] = random(0, 10);
+				else
+					if (customCards[i] != 'X')
+						cards[i] = customCards[i] - 0x30;
+					else
+						cards[i] = 10;
+				cards[i] += 16 * random(0, 4);
+				selcards[i] = false;
+			}
+			for (UINT i = 0; i < decksize; i++)
+				if (customDeck == "")
+					deck[i] = random(0, 10) + (16 * random(0, 4));
+				else
+					if (customDeck[i] != NULL)
+						if (customDeck[i] != 'X')
+							deck[i] = customDeck[i] - 0x30;
+						else
+							deck[i] = 10;
+			cards[22] = deck[0];
+			timer = 36;
+			timeleft = 36;
+		}
+
+		if (frame >= 10 && frame <= 130)
+		{
+			if (level == maxlvl && bnsround)
+				drawText(1, "BONUS ROUND", 140, 200, 600, 400, D3DCOLOR_XRGB(255, 255, 0));
 			else
-				playSnd(errorSnd);
+			{
+				stringstream << "ROUND " << level + 1;
+				drawText(1, const_cast<char *>(stringstream.str().c_str()), 215, 200, 500, 400, D3DCOLOR_XRGB(255, 255, 0));
+				stringstream.str("");
+			}
+			if (!bnsround && level == maxlvl)
+			{
+				stringstream << "BONUS ROUND AT " << bnsgoal;
+				drawText(4, const_cast<char *>(stringstream.str().c_str()), 160, 270, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
+				stringstream.str("");
+			}
+		}
 
-		if (ifSelectedCard(15))
-			if (!cardexists[19] || noclip)
-				selectCard(15);
-			else
-				playSnd(errorSnd);
+		fonts[1]->End();
 
-		if (ifSelectedCard(14))
-			if ((!cardexists[18] && !cardexists[19]) || noclip)
-				selectCard(14);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(13))
-			if (!cardexists[18] || noclip)
-				selectCard(13);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(12))
-			if (!cardexists[17] || noclip)
-				selectCard(12);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(11))
-			if ((!cardexists[16] && !cardexists[17]) || noclip)
-				selectCard(11);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(10))
-			if (!cardexists[16] || noclip)
-				selectCard(10);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(9))
-			if ((!cardexists[14] && !cardexists[15]) || noclip)
-				selectCard(9);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(8))
-			if ((!cardexists[13] && !cardexists[14]) || noclip)
-				selectCard(8);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(7))
-			selectCard(7);
-
-		if (ifSelectedCard(6))
-			if ((!cardexists[11] && !cardexists[12]) || noclip)
-				selectCard(6);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(5))
-			if ((!cardexists[10] && !cardexists[11]) || noclip)
-				selectCard(5);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(4))
-			if ((!cardexists[8] && !cardexists[9]) || noclip)
-				selectCard(4);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(3))
-			if ((!cardexists[7] && !cardexists[13]) || noclip)
-				selectCard(3);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(2))
-			if ((!cardexists[7] && !cardexists[12]) || noclip)
-				selectCard(2);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(1))
-			if ((!cardexists[5] && !cardexists[6]) || noclip)
-				selectCard(1);
-			else
-				playSnd(errorSnd);
-
-		if (ifSelectedCard(0))
-			if ((!cardexists[2] && !cardexists[3]) || noclip)
-				selectCard(0);
-			else
-				playSnd(errorSnd);
-	}
-
-	switch (frame)
-	{
-	case 10:
-		playSnd("NEWROUND.WAV");
-		break;
-	case 134:
-	case 138:
-	case 142:
-	case 146:
-	case 150:
-	case 154:
-	case 158:
-	case 162:
-	case 166:
-	case 170:
-	case 174:
-	case 178:
-	case 182:
-	case 186:
-	case 190:
-	case 194:
-	case 198:
-	case 202:
-	case 206:
-	case 210:
-	case 214:
-	case 218:
-	case 222:
-		playSnd(flipcardSnd);
-		break;
-	}
-
-	fonts[0]->Begin();
-
-	if (debugdraw)
-	{
-		stringstream << "Framerate: " << 1000 / tick << "\nTickrate: " << tick << "\nFrame: " << frame << "\nSeed: " << seed << "\nSeed Amplified (" << seedampmin << "-" << seedampmax << "x):\n" << seed*seedamp << "\nScore to Highscore: " << score << " / " << hiscore << "\nLevel: " << int(level) << "\nMax Levels: " << int(maxlvl) << "\nBonus Round: " << bnsround << "\nDeck Size: " << int(curdeckcard) << " / " << decksize /*<< "\nGame Timer: " << int(timer) << "\nElevens: " << int(elevens) */<< "\nMouse Position: " << mousepos.x << ", " << mousepos.y << "\nSelected cards: ";
-		for (int i = 0; i < 23; i++)
-			stringstream << selcards[i];
-		stringstream << "\nPause Frames: " << int(pause);
-		if (debugdrawcard)
+		if (curnum == 11 && pause == 0)
+		{
 			for (int i = 0; i < 23; i++)
-				stringstream << " \nCard " << i << ": " << ((cards[i] >> 0) & 0x01) + getCardNum(i) << " / " << ((cards[i] >> 5) & 0x01) << ((cards[i] >> 4) & 0x01) << " " << ((cards[i] >> 3) & 0x01) << ((cards[i] >> 2) & 0x01) << ((cards[i] >> 1) & 0x01) << ((cards[i] >> 0) & 0x01);
-		drawText(0, const_cast<char *>(stringstream.str().c_str()), 0, 0, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
-		stringstream.str("");
+				if (selcards[i])
+					if (i == 0)
+						__asm add[score], 600
+					else if (i > 0 && i <= 4)
+						__asm add[score], 500
+					else if (i >= 5 && i < 10)
+						__asm add[score], 400
+					else if (i >= 10 && i <= 15)
+						__asm add[score], 300
+					else if (i >= 16 && i <= 19)
+						__asm add[score], 200
+					else
+						__asm add[score], 100
+			for (int i = 0; i < 23; i++)
+			{
+				matchedcards[i] = selcards[i];
+				selcards[i] = 0;
+			}
+			pause = 10;
+			playSnd("MATCH.WAV");
+			__asm inc[elevens]
+		}
+
+		if (pause == 2)
+		{
+			for (int i = 0; i < 23; i++)
+				if (matchedcards[i] && cardexists[i])
+				{
+					selcards[i] = false;
+					if (i != 22)
+						cardexists[i] = false;
+					else
+					{
+						if (decksize > 0)
+						{
+							deck[curdeckcard] = 255;
+							decksize--;
+							curdeckcard++;
+							if (decksize > 0) {
+								if (curdeckcard >= decksizeorig)
+									curdeckcard = 0;
+								while (deck[curdeckcard] == 255 && decksize > 0)
+								{
+									curdeckcard++;
+									if (curdeckcard >= decksizeorig)
+										curdeckcard = 0;
+								}
+								cards[22] = deck[curdeckcard];
+							}
+							if (decksize == 0)
+								cardexists[22] = false;
+						}
+						else
+							cardexists[22] = false;
+					}
+					matchedcards[i] = false;
+				}
+			curnum = 0;
+		}
+
+		if (frame > 222 && pause == 0 && frame < ULLONG_MAX - 0xfffffff)
+		{
+			timeleft = timer;
+
+			if (clickedArea(click_areas[23]))
+				flipCard();
+
+			if (clickedArea(click_areas[24]) && timer > 0)
+				frame = ULLONG_MAX - 0xfff1;
+
+			if (ifSelectedCard(22))
+				selectCard(22);
+
+			if (ifSelectedCard(21))
+				selectCard(21);
+
+			if (ifSelectedCard(20))
+				selectCard(20);
+
+			if (ifSelectedCard(19))
+				if (!cardexists[21] || ((cheats >> 0) & 1))
+					selectCard(19);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(18))
+				if (!cardexists[21] || ((cheats >> 0) & 1))
+					selectCard(18);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(17))
+				if (!cardexists[20] || ((cheats >> 0) & 1))
+					selectCard(17);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(16))
+				if (!cardexists[20] || ((cheats >> 0) & 1))
+					selectCard(16);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(15))
+				if (!cardexists[19] || ((cheats >> 0) & 1))
+					selectCard(15);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(14))
+				if ((!cardexists[18] && !cardexists[19]) || ((cheats >> 0) & 1))
+					selectCard(14);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(13))
+				if (!cardexists[18] || ((cheats >> 0) & 1))
+					selectCard(13);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(12))
+				if (!cardexists[17] || ((cheats >> 0) & 1))
+					selectCard(12);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(11))
+				if ((!cardexists[16] && !cardexists[17]) || ((cheats >> 0) & 1))
+					selectCard(11);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(10))
+				if (!cardexists[16] || ((cheats >> 0) & 1))
+					selectCard(10);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(9))
+				if ((!cardexists[14] && !cardexists[15]) || ((cheats >> 0) & 1))
+					selectCard(9);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(8))
+				if ((!cardexists[13] && !cardexists[14]) || ((cheats >> 0) & 1))
+					selectCard(8);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(7))
+				selectCard(7);
+
+			if (ifSelectedCard(6))
+				if ((!cardexists[11] && !cardexists[12]) || ((cheats >> 0) & 1))
+					selectCard(6);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(5))
+				if ((!cardexists[10] && !cardexists[11]) || ((cheats >> 0) & 1))
+					selectCard(5);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(4))
+				if ((!cardexists[8] && !cardexists[9]) || ((cheats >> 0) & 1))
+					selectCard(4);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(3))
+				if ((!cardexists[7] && !cardexists[13]) || ((cheats >> 0) & 1))
+					selectCard(3);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(2))
+				if ((!cardexists[7] && !cardexists[12]) || ((cheats >> 0) & 1))
+					selectCard(2);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(1))
+				if ((!cardexists[5] && !cardexists[6]) || ((cheats >> 0) & 1))
+					selectCard(1);
+				else
+					playSnd(errorSnd);
+
+			if (ifSelectedCard(0))
+				if ((!cardexists[2] && !cardexists[3]) || ((cheats >> 0) & 1))
+					selectCard(0);
+				else
+					playSnd(errorSnd);
+		}
+
+		switch (frame)
+		{
+		case 10:
+			playSnd("NEWROUND.WAV");
+			break;
+		case 134:
+		case 138:
+		case 142:
+		case 146:
+		case 150:
+		case 154:
+		case 158:
+		case 162:
+		case 166:
+		case 170:
+		case 174:
+		case 178:
+		case 182:
+		case 186:
+		case 190:
+		case 194:
+		case 198:
+		case 202:
+		case 206:
+		case 210:
+		case 214:
+		case 218:
+		case 222:
+			playSnd(flipcardSnd);
+			break;
+		}
+
+		fonts[0]->Begin();
+
+		if (((cheats >> 1) & 1))
+		{
+			stringstream << "Framerate: " << 1000 / tick << "\nTickrate: " << tick << "\nFrame: " << frame << "\nSeed: " << seed << "\nSeed Amplified (" << seedampmin << "-" << seedampmax << "x):\n" << seed*seedamp << "\nScore to Highscore: " << score << " / " << hiscore << "\nLevel: " << int(level) << "\nMax Levels: " << int(maxlvl) << "\nBonus Round: " << bnsround << "\nDeck Size: " << int(curdeckcard) << " / " << decksize /*<< "\nGame Timer: " << int(timer) << "\nElevens: " << int(elevens) */ << "\nMouse Position: " << mousepos.x << ", " << mousepos.y << "\nSelected cards: ";
+			for (int i = 0; i < 23; i++)
+				stringstream << selcards[i];
+			stringstream << "\nPause Frames: " << int(pause);
+			if (((cheats >> 2) & 1))
+				for (int i = 0; i < 23; i++)
+					stringstream << " \nCard " << i << ": " << ((cards[i] >> 0) & 0x01) + getCardNum(i) << " / " << ((cards[i] >> 5) & 0x01) << ((cards[i] >> 4) & 0x01) << " " << ((cards[i] >> 3) & 0x01) << ((cards[i] >> 2) & 0x01) << ((cards[i] >> 1) & 0x01) << ((cards[i] >> 0) & 0x01);
+			drawText(0, const_cast<char *>(stringstream.str().c_str()), 0, 0, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
+			stringstream.str("");
+		}
+
+		fonts[0]->End();
+
+		drawing->End();
+
+		d3ddev->EndScene();
+
+		d3ddev->Present(NULL, NULL, NULL, NULL);
 	}
 
-	fonts[0]->End();
-
-	drawing->End();
-
-	d3ddev->EndScene();
-
-	d3ddev->Present(NULL, NULL, NULL, NULL);
+	if (pressedpause)
+	{
+		d3ddev->BeginScene();
+		//drawText(3, "PAUSED", 110, 100, 640, 480, D3DCOLOR_XRGB(0, 0, 0));
+		//drawText(3, "PAUSED", 100, 90, 640, 480, D3DCOLOR_XRGB(255, 127, 0));
+		//drawText(4, "PAUSED", 265, 84, 400, 224, D3DCOLOR_XRGB(255, 127, 0));
+		drawText(4, "PAUSED", 266, 86, 400, 224, D3DCOLOR_XRGB(0, 0, 0));
+		drawText(4, "PAUSED", 264, 84, 400, 224, D3DCOLOR_XRGB(255, 127, 0));
+		d3ddev->EndScene();
+		d3ddev->Present(NULL, NULL, NULL, NULL);
+		pressedpause = false;
+		paused = !paused;
+	}
 
 	curnum = 0;
 
@@ -1268,23 +1320,26 @@ static void render_frame(void)
 	if (pause > 0)
 		pause--;
 
-	if (GetAsyncKeyState(VK_PAUSE))
-		MessageBox(NULL, "PAUSED", "11UP", MB_OK);
 
 	if (frame >= ULLONG_MAX)
 		exit(score);
 
-	if (score >= hiscore)
-	{
-		stringstream.clear();
-		stringstream.str("");
-		stringstream << workingdir() << +"\\GAME.INI";
-		WritePrivateProfileStringA("11UP", "Hiscore", (newscore.c_str()), stringstream.str().c_str());
-		stringstream.str("");
-		hiscore = score;
-	}
+	if (!paused) {
+		if (score >= hiscore)
+		{
+			stringstream.clear();
+			stringstream.str("");
+			stringstream << workingdir() << +"\\GAME.INI";
+			WritePrivateProfileStringA("11UP", "Hiscore", (newscore.c_str()), stringstream.str().c_str());
+			stringstream.str("");
+			__asm {
+				mov eax, [score]
+				mov[hiscore], eax
+			}
+		}
 
-	frame++;
+		frame++;
+	}
 }
 
 static void cleanD3D(void)

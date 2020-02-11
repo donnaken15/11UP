@@ -3,4 +3,7 @@
   <ItemGroup>
     <ClCompile Include="11UP.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="app.manifest" />
+  </ItemGroup>
 </Project>
