@@ -264,7 +264,7 @@ void initD3D(HWND hWnd)
 
 	NewTexture("BACK.PNG", D3DFMT_R5G6B5, &textures[0]);
 	NewTexture("CARD.PNG", D3DFMT_A1R5G5B5, &textures[1]);
-	NewTexture("11SFLASH.DDS", D3DFMT_A1R5G5B5, &textures[2]);
+	NewTexture("11SFLASH.PNG", D3DFMT_A1R5G5B5, &textures[2]);
 
 	D3DXCreateSprite(d3ddev, &drawing);
 	
