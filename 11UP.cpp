@@ -2,6 +2,7 @@
 #include "d3dx9.h"
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -20,6 +21,25 @@ static LPD3DXFONT fonts[16];
 static POINT mousepos;
 static HFONT hfonts[16];
 
+static std::ifstream wav_bonus           (          "BONUS.WAV" , std::ios::binary);
+static std::ifstream wav_count11up       (      "COUNT11UP.WAV" , std::ios::binary);
+static std::ifstream wav_count11upstop   (  "COUNT11UPSTOP.WAV" , std::ios::binary);
+static std::ifstream wav_deckbonus       (      "DECKBONUS.WAV" , std::ios::binary);
+static std::ifstream wav_error           (          "ERROR.WAV" , std::ios::binary);
+static std::ifstream wav_flipcard        (       "FLIPCARD.WAV" , std::ios::binary);
+static std::ifstream wav_hurryup         (        "HURRYUP.WAV" , std::ios::binary);
+static std::ifstream wav_match           (          "MATCH.WAV" , std::ios::binary);
+static std::ifstream wav_newround        (       "NEWROUND.WAV" , std::ios::binary);
+static std::ifstream wav_null            (           "NULL.WAV" , std::ios::binary);
+static std::ifstream wav_select          (         "SELECT.WAV" , std::ios::binary);
+static std::ifstream wav_speedbonus      (     "SPEEDBONUS.WAV" , std::ios::binary);
+static std::ifstream wav_winner          (         "WINNER.WAV" , std::ios::binary);
+static std::ifstream wav_winround1       (      "WINROUND1.WAV" , std::ios::binary);
+static std::ifstream wav_winround2       (      "WINROUND2.WAV" , std::ios::binary);
+static std::ifstream wav_winround3       (      "WINROUND3.WAV" , std::ios::binary);
+
+char * snd[16];
+
 static DWORD tick = 16, score, hiscore, bnsgoal, elevens, timerInterval, timeIntMS;
 
 static byte cards[23], deckleft, timer, timeleft, curnum, level = 0, maxlvl, bonuslvl, speedbns, cheats, deck[8192];
@@ -32,7 +52,7 @@ static unsigned long long frame, pause;
 
 static std::stringstream stringstream;
 
-static const LPCSTR title = "11UP", flipcardSnd = "FLIPCARD.WAV", errorSnd = "ERROR.WAV", winroundsnd[2] = {"WINROUND1.WAV","WINROUND2.WAV"};
+static const LPCSTR title = "11UP";
 
 static LPCSTR ini;
 
@@ -64,7 +84,7 @@ static LPDIRECT3DDEVICE9 d3ddev;
 static void initD3D(HWND hWnd);
 static void render_frame(void);
 static void cleanD3D(void);
-static void playSnd(LPCSTR fname);
+static void playSnd(byte i);
 static void NewTexture(LPCSTR fname, D3DFORMAT fmt, LPDIRECT3DTEXTURE9 *tex);
 static void drawText(int i, LPSTR text, int left, int top, int right, int bottom, D3DCOLOR COLOR);
 
@@ -82,12 +102,10 @@ static void drawText(int i, LPSTR text, int left, int top, int right, int bottom
 	fonts[i]->DrawTextA(text, -1, &rect, NULL, COLOR);
 }
 
-static void playSnd(LPCSTR fname)
+static void playSnd(byte i)
 {
 	if (sound)
-		PlaySound(fname,
-			GetModuleHandle(NULL),
-			SND_ASYNC | SND_FILENAME | SND_NOWAIT);
+		PlaySound(snd[i], NULL, SND_ASYNC | SND_MEMORY | SND_NOWAIT);
 }	
 
 static void NewTexture(LPCSTR fname, D3DFORMAT fmt, LPDIRECT3DTEXTURE9 *tex)
@@ -149,6 +167,134 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	ShowWindow(hWnd, nCmdShow);
 
 	initD3D(hWnd);
+
+	wav_bonus.seekg(0, std::ios::end);
+	int length = wav_bonus.tellg();
+	snd[0] = new char[length];
+	wav_bonus.seekg(0, std::ios::beg);
+	wav_bonus.read(snd[0], length);
+
+	wav_bonus.close();
+
+	wav_count11up.seekg(0, std::ios::end);
+	length = wav_count11up.tellg();
+	snd[1] = new char[length];
+	wav_count11up.seekg(0, std::ios::beg);
+	wav_count11up.read(snd[1], length);
+
+	wav_count11up.close();
+
+	wav_count11upstop.seekg(0, std::ios::end);
+	length = wav_count11upstop.tellg();
+	snd[2] = new char[length];
+	wav_count11upstop.seekg(0, std::ios::beg);
+	wav_count11upstop.read(snd[2], length);
+
+	wav_count11upstop.close();
+
+	wav_deckbonus.seekg(0, std::ios::end);
+	length = wav_deckbonus.tellg();
+	snd[3] = new char[length];
+	wav_deckbonus.seekg(0, std::ios::beg);
+	wav_deckbonus.read(snd[3], length);
+
+	wav_deckbonus.close();
+
+	wav_error.seekg(0, std::ios::end);
+	length = wav_error.tellg();
+	snd[4] = new char[length];
+	wav_error.seekg(0, std::ios::beg);
+	wav_error.read(snd[4], length);
+
+	wav_error.close();
+
+	wav_flipcard.seekg(0, std::ios::end);
+	length = wav_flipcard.tellg();
+	snd[5] = new char[length];
+	wav_flipcard.seekg(0, std::ios::beg);
+	wav_flipcard.read(snd[5], length);
+
+	wav_flipcard.close();
+
+	wav_hurryup.seekg(0, std::ios::end);
+	length = wav_hurryup.tellg();
+	snd[6] = new char[length];
+	wav_hurryup.seekg(0, std::ios::beg);
+	wav_hurryup.read(snd[6], length);
+
+	wav_hurryup.close();
+
+	wav_match.seekg(0, std::ios::end);
+	length = wav_match.tellg();
+	snd[7] = new char[length];
+	wav_match.seekg(0, std::ios::beg);
+	wav_match.read(snd[7], length);
+
+	wav_match.close();
+
+	wav_newround.seekg(0, std::ios::end);
+	length = wav_newround.tellg();
+	snd[8] = new char[length];
+	wav_newround.seekg(0, std::ios::beg);
+	wav_newround.read(snd[8], length);
+
+	wav_newround.close();
+
+	wav_null.seekg(0, std::ios::end);
+	length = wav_null.tellg();
+	snd[9] = new char[length];
+	wav_null.seekg(0, std::ios::beg);
+	wav_null.read(snd[9], length);
+
+	wav_null.close();
+
+	wav_select.seekg(0, std::ios::end);
+	length = wav_select.tellg();
+	snd[10] = new char[length];
+	wav_select.seekg(0, std::ios::beg);
+	wav_select.read(snd[10], length);
+
+	wav_select.close();
+
+	wav_speedbonus.seekg(0, std::ios::end);
+	 length = wav_speedbonus.tellg();
+	snd[11] = new char[length];
+	wav_speedbonus.seekg(0, std::ios::beg);
+	wav_speedbonus.read(snd[11], length);
+
+	wav_speedbonus.close();
+
+	wav_winner.seekg(0, std::ios::end);
+	 length = wav_winner.tellg();
+	snd[12] = new char[length];
+	wav_winner.seekg(0, std::ios::beg);
+	wav_winner.read(snd[12], length);
+
+	wav_winner.close();
+
+	wav_winround1.seekg(0, std::ios::end);
+	length = wav_winround1.tellg();
+	snd[13] = new char[length];
+	wav_winround1.seekg(0, std::ios::beg);
+	wav_winround1.read(snd[13], length);
+
+	wav_winround1.close();
+
+	wav_winround2.seekg(0, std::ios::end);
+	length = wav_winround2.tellg();
+	snd[14] = new char[length];
+	wav_winround2.seekg(0, std::ios::beg);
+	wav_winround2.read(snd[14], length);
+
+	wav_winround2.close();
+
+	wav_winround3.seekg(0, std::ios::end);
+	length = wav_winround3.tellg();
+	snd[15] = new char[length];
+	wav_winround3.seekg(0, std::ios::beg);
+	wav_winround3.read(snd[15], length);
+
+	wav_winround3.close();
 
 	stringstream << workingdir() << + "\\GAME.INI";
 
@@ -594,6 +740,21 @@ int choose(int choice1, int choice2, int choice3, int choice4)
 	}
 }
 
+int choose3(int choice1, int choice2, int choice3)
+{
+	switch (int(rand() * 3))
+	{
+	case 0:
+		return choice1;
+	case 1:
+		return choice2;
+	case 2:
+		return choice3;
+	default:
+		break;
+	}
+}
+
 int getCardNum(byte card)
 {
 	return ((cards[card] >> 0) & 0x01) +
@@ -637,15 +798,15 @@ static void selectCard(int i)
 		if (!selcards[i] && curnum + getCardNum(i) < 11)
 		{
 			selcards[i] = true;
-			playSnd("SELECT.WAV");
+			playSnd(10);
 		}
 		else if (selcards[i])
 		{
 			selcards[i] = false;
-			playSnd("SELECT.WAV");
+			playSnd(10);
 		}
 		else
-			playSnd(errorSnd);
+			playSnd(4);
 	LMB = false;
 }
 
@@ -674,7 +835,7 @@ static void flipCard()
 			if (curdeckcard >= decksizeorig)
 				curdeckcard = 0;
 		}
-		playSnd(flipcardSnd);
+		playSnd(5);
 		cards[22] = deck[curdeckcard];
 	}
 }
@@ -749,7 +910,7 @@ static void render_frame(void)
 			drawText(3, "WINNER", 110, 104, 640, 480, D3DCOLOR_XRGB(192, 0, 255));
 			drawText(5, "PLAYER 1", 120, 220, 640, 480, D3DCOLOR_XRGB(0, 255, 0));
 			if (frame == ULLONG_MAX - 1 && sound)
-				PlaySoundA("WINNER.WAV",NULL,SND_FILENAME);
+				PlaySoundA(snd[12],NULL,SND_MEMORY);
 		}
 
 		if (score > bnsgoal && !bnsround)
@@ -763,7 +924,7 @@ static void render_frame(void)
 			if (timer > 0)
 			{
 				timer -= 1;
-				playSnd("SPEEDBONUS.WAV");
+				playSnd(11);
 				speedbns += 1;
 				score += 150;
 				frame -= 2;
@@ -802,7 +963,7 @@ static void render_frame(void)
 		{
 			won = false;
 			if (sound)
-				PlaySoundA("HURRYUP.WAV", NULL, SND_FILENAME);
+				PlaySoundA(snd[7], NULL, SND_MEMORY);
 			Sleep(2500);
 			frame = ULLONG_MAX - 0xff;
 		}
@@ -813,7 +974,7 @@ static void render_frame(void)
 			{
 				decksize--;
 				score += 1000;
-				playSnd("DECKBONUS.WAV");
+				playSnd(3);
 				Sleep(70);
 				frame -= 4;
 			}
@@ -830,7 +991,7 @@ static void render_frame(void)
 			{
 				__asm add[score], 1000
 				if (sound)
-					PlaySoundA("COUNT11UP.WAV", NULL, SND_NOSTOP | SND_FILENAME | SND_ASYNC | SND_LOOP);
+					PlaySoundA(snd[1], NULL, SND_NOSTOP | SND_MEMORY | SND_ASYNC | SND_LOOP);
 				flash11s = !flash11s;
 				frame -= 15;
 				__asm dec[elevens]
@@ -840,7 +1001,7 @@ static void render_frame(void)
 				if (frame >= ULLONG_MAX - 0xf1) {
 					flash11s = false;
 					if (sound)
-						PlaySoundA("COUNT11UPSTOP.WAV", NULL, SND_FILENAME);
+						PlaySoundA(snd[2], NULL, SND_MEMORY);
 					stopcounting11s = true;
 					if (level < maxlvl)
 					{
@@ -872,7 +1033,7 @@ static void render_frame(void)
 			case 0xffff0 - (3 * 4) :
 			case 0xffff0 - (3 * 5) :
 			case 0xffff0 - (3 * 6) :
-				playSnd("BONUS.WAV");
+				playSnd(0);
 				score += 1000;
 				break;
 			case 0xffff0 - (3 * 8) :
@@ -890,14 +1051,14 @@ static void render_frame(void)
 		{
 			timeleft = timer;
 			for (byte i = 0; i < 4; i++) {
-				playSnd(winroundsnd[0]);
+				playSnd(13);
 				Sleep(730);
 				if (i == 1 || i == 3) {
-					playSnd(winroundsnd[1]);
+					playSnd(14);
 					Sleep(1234);
 				}
 			}
-			playSnd("WINROUND3.WAV");
+			playSnd(15);
 			Sleep(1363);
 			// 6922
 		}
@@ -981,7 +1142,7 @@ static void render_frame(void)
 						timer--;
 						timerInterval = timeIntMS / tick;
 						if (timer == 6)
-							playSnd("HURRYUP.WAV");
+							playSnd(6);
 					}
 			}
 		}
@@ -997,7 +1158,7 @@ static void render_frame(void)
 			for (byte i = 0; i < 23; i++)
 			{
 				if (customCards == "")
-					cards[i] = random(0, 10);
+					cards[i] = random(0, 5) * random(1,2);
 				else
 					if (customCards[i] != 'X')
 						cards[i] = customCards[i] - 0x30;
@@ -1008,7 +1169,7 @@ static void render_frame(void)
 			}
 			for (UINT i = 0; i < decksize; i++)
 				if (customDeck == "")
-					deck[i] = random(0, 10) + (16 * random(0, 4));
+					deck[i] = (random(0, 5) * random(1, 2)) + (16 * random(0, 4));
 				else
 					if (customDeck[i] != NULL)
 						if (customDeck[i] != 'X')
@@ -1062,7 +1223,7 @@ static void render_frame(void)
 				selcards[i] = 0;
 			}
 			pause = 10;
-			playSnd("MATCH.WAV");
+			playSnd(7);
 			__asm inc[elevens]
 		}
 
@@ -1126,73 +1287,73 @@ static void render_frame(void)
 				if (!cardexists[21] || ((cheats >> 0) & 1))
 					selectCard(19);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(18))
 				if (!cardexists[21] || ((cheats >> 0) & 1))
 					selectCard(18);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(17))
 				if (!cardexists[20] || ((cheats >> 0) & 1))
 					selectCard(17);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(16))
 				if (!cardexists[20] || ((cheats >> 0) & 1))
 					selectCard(16);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(15))
 				if (!cardexists[19] || ((cheats >> 0) & 1))
 					selectCard(15);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(14))
 				if ((!cardexists[18] && !cardexists[19]) || ((cheats >> 0) & 1))
 					selectCard(14);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(13))
 				if (!cardexists[18] || ((cheats >> 0) & 1))
 					selectCard(13);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(12))
 				if (!cardexists[17] || ((cheats >> 0) & 1))
 					selectCard(12);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(11))
 				if ((!cardexists[16] && !cardexists[17]) || ((cheats >> 0) & 1))
 					selectCard(11);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(10))
 				if (!cardexists[16] || ((cheats >> 0) & 1))
 					selectCard(10);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(9))
 				if ((!cardexists[14] && !cardexists[15]) || ((cheats >> 0) & 1))
 					selectCard(9);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(8))
 				if ((!cardexists[13] && !cardexists[14]) || ((cheats >> 0) & 1))
 					selectCard(8);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(7))
 				selectCard(7);
@@ -1201,49 +1362,49 @@ static void render_frame(void)
 				if ((!cardexists[11] && !cardexists[12]) || ((cheats >> 0) & 1))
 					selectCard(6);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(5))
 				if ((!cardexists[10] && !cardexists[11]) || ((cheats >> 0) & 1))
 					selectCard(5);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(4))
 				if ((!cardexists[8] && !cardexists[9]) || ((cheats >> 0) & 1))
 					selectCard(4);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(3))
 				if ((!cardexists[7] && !cardexists[13]) || ((cheats >> 0) & 1))
 					selectCard(3);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(2))
 				if ((!cardexists[7] && !cardexists[12]) || ((cheats >> 0) & 1))
 					selectCard(2);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(1))
 				if ((!cardexists[5] && !cardexists[6]) || ((cheats >> 0) & 1))
 					selectCard(1);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 
 			if (ifSelectedCard(0))
 				if ((!cardexists[2] && !cardexists[3]) || ((cheats >> 0) & 1))
 					selectCard(0);
 				else
-					playSnd(errorSnd);
+					playSnd(4);
 		}
 
 		switch (frame)
 		{
 		case 10:
-			playSnd("NEWROUND.WAV");
+			playSnd(8);
 			break;
 		case 134:
 		case 138:
@@ -1268,7 +1429,7 @@ static void render_frame(void)
 		case 214:
 		case 218:
 		case 222:
-			playSnd(flipcardSnd);
+			playSnd(5);
 			break;
 		}
 

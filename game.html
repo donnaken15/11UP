@@ -1,27 +1,7 @@
 <!-- fake emscriptem kek -->
 <!DOCTYPE HTML>
-<html lang="en">
+<html lang="en" oncontextmenu="return false;" onkeypress="keycheck(event)">
     <head>
-        <style>
-            html, body, canvas {
-                width: 640px;
-                height: 480px;
-				top: 0px;
-				left: 0px;
-            }
-			html {
-				background-color: #000; background-position: 0 0; background-repeat: no-repeat;
-				background-image: url(https://donnaken15.github.io/11UP/BACKDROP.PNG);
-			}
-			* {
-                padding: 0;
-                margin: 0;
-                overflow-x: hidden;
-                overflow-y: hidden;
-                overflow: hidden;
-				user-select: none;
-			}
-        </style>
         <meta charset="ascii"/>
         <meta name="keywords" content="11up, megatouch"/>
         <meta name="description" content="Play Megatouch 11UP on the web"/>
@@ -50,24 +30,29 @@
         <meta name="og:site_name" content="11UP"/>
         <meta name="og:description" content="Play Megatouch 11UP on the web"/>
         <title>11UP</title>
-        <canvas id="game" onmousemove="getMouse(event)"
-        oncontextmenu="getMouse(event)" onclick="getMouse(event)"
+        <canvas id="game" onclick="getMouse(event)"
         ondblclick="getMouse(event)" onmousedown="getMouse(event)"
-        onmouseenter="getMouse(event)" onmouseleave="getMouse(event)"
-        onmouseover="getMouse(event)" onmouseup="getMouse(event)"
-        ontouchstart="getMouse(event)" ontouchmove="getMouse(event)"
-        ontouchend="getMouse(event)" click="getMouse(event)"
-        width="640" height="480"></canvas>
+		onmouseleave="getMouse(event)" ontouchstart="getMouse(event)"
+		ontouchend="getMouse(event)" click="getMouse(event)"
+		oncontextmenu="return false;" width="640" height="480"></canvas>
+		<ul id="image-preload">
+			<img src='https://donnaken15.github.io/11UP/CARD.png'>
+			<img src='https://donnaken15.github.io/11UP/BACKDROP.PNG'>
+			<img src='https://donnaken15.github.io/11UP/11SFLASH.PNG'>
+		</ul>
         <script>
             var score = 0, hiscore = 0, bnsgoal, elevens, title = "11UP",
-                level = 0, cards = [] /* 23 */, deck = [] /* 8192 */,
-                deckleft, timer, timeleft = 36, curnum, maxlvl, bonuslvl,
-                curdeckcard, speedbns, cardexists = [] /* 2 */,
-				params = new URL(window.location.href).searchParams,
-                selcards = [] /* 2 */, matchedcards = [] /* 2 */,
-                matched, won, flash11s, stopcounting11s, noclip, seed,
-                debugdraw, debugdrawcard, frame, pause, drawmode = 1;
-			function getMouse(event) { mouse = event; }
+                level = 0, cards = [] /* 23 */, deck = [] /* 8192 */, bnsround = false,
+                deckleft, timer, timeleft = 36, curnum, maxlvl = 1, bonuslvl, __snd = null,
+                curdeckcard, speedbns, cardexists = [] /* 2 */, params =
+				new URL(window.location.href).searchParams, selcards = []
+				/* 2 */, matchedcards = [] /* 2 */, matched, won, flash11s,
+				stopcounting11s, noclip, seed, frame = 0, maxframes = 4294967296,
+                debugdraw, debugdrawcard, frame, pause, drawmode = 1, volume = 1, mousev = null,
+				snd_newround = new Audio('https://donnaken15.github.io/11UP/NEWROUND.WAV'),
+				snd_flipcard = new Audio('https://donnaken15.github.io/11UP/FLIPCARD.WAV')
+				;
+			function getMouse(event) { mousev = event; return false;}
 			function die(err) {
 				switch (err) {
 					case 0:
@@ -78,6 +63,28 @@
 				window.stop();
 				window.close();
 			}
+			function randrange(x,y)
+			{
+				return Math.floor(Math.random() * (y - x) + x)
+			}
+			function popup() {
+				if (!window.opener)
+					window.open(window.location.href, "_blank", "width=640,height=480,location=0,menubar=0,scrollbars=0,status=0,toolbar=0");
+			}
+			function sound_play(inst) {
+				___snd = inst.cloneNode(true)
+				___snd.volume = volume
+				___snd.play()
+			}
+			function startAnimating(fps) {
+				fpsInterval = 1000 / fps;
+				then = Date.now();
+				startTime = then;
+				draw();
+			}
+			function keycheck(event) {
+				
+			}
 			// draw modes, 0 : dom, 1 : canvas
 			if (params.get('drawmode') !== null)
 				{ if (parseInt(params.get('drawmode')) < 2) {
@@ -85,8 +92,94 @@
 			if (drawmode) {
                 var canvas = document.getElementById("game"),
                 ctx = canvas.getContext("2d"); }
-            
+			// ctx.font = "48px 'BIT.TRIP Small'";
+			function draw() {
+				requestAnimationFrame(draw);
+				now = Date.now();
+				elapsed = now - then;
+				if (elapsed > fpsInterval) {
+					then = now - (elapsed % fpsInterval);
+					if (mousev !== null || mousev !== undefined)
+					{
+						mouse = mousev;
+						if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && mousev.touches[0] !== undefined )
+						mouse = mousev.touches[0];
+					}	
+					ctx.imageSmoothingEnabled = false;
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
+					ctx.font = "bold 80px 'Arial Narrow'";
+					ctx.fillStyle = "yellow";
+					{
+						if (frame >= 10 && frame <= 130)
+							{
+							if (level == maxlvl && bnsround) { }
+								//drawText(1, "BONUS ROUND", 140, 200, 600, 400, D3DCOLOR_XRGB(255, 255, 0));
+							else
+								ctx.fillText("ROUND 1", 173, 250);
+							/*if (!bnsround && level == maxlvl)
+							{
+								stringstream << "BONUS ROUND AT " << bnsgoal;
+								drawText(4, const_cast<char *>(stringstream.str().c_str()), 160, 270, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
+								stringstream.str("");
+							}*/
+						}
+						switch (frame) {
+							case 10:
+								sound_play(snd_newround)
+								break
+							case 134:
+							case 138:
+							case 142:
+							case 146:
+							case 150:
+							case 154:
+							case 158:
+							case 162:
+							case 166:
+							case 170:
+							case 174:
+							case 178:
+							case 182:
+							case 186:
+							case 190:
+							case 194:
+							case 198:
+							case 202:
+							case 206:
+							case 210:
+							case 214:
+							case 218:
+							case 222:
+								sound_play(snd_flipcard)
+								break
+						}
+					}
+					prevFrame = performance.now();
+					frame++;
+				}
+			}
+			startAnimating(60);
         </script>
+        <style>
+            html, body, canvas {
+                width: 640px;
+                height: 480px;
+				top: 0px;
+				left: 0px;
+            }
+			html {
+				background-color: #000; background-position: 0 0; background-repeat: no-repeat;
+				background-image: url(https://donnaken15.github.io/11UP/BACKDROP.PNG);
+			}
+			* {
+                padding: 0;
+                margin: 0;
+                overflow-x: hidden;
+                overflow-y: hidden;
+                overflow: hidden;
+				user-select: none;
+			}
+        </style>
     </head>
     <body>
 
