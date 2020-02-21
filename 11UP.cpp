@@ -21,24 +21,9 @@ static LPD3DXFONT fonts[16];
 static POINT mousepos;
 static HFONT hfonts[16];
 
-static std::ifstream wav_bonus           (          "BONUS.WAV" , std::ios::binary);
-static std::ifstream wav_count11up       (      "COUNT11UP.WAV" , std::ios::binary);
-static std::ifstream wav_count11upstop   (  "COUNT11UPSTOP.WAV" , std::ios::binary);
-static std::ifstream wav_deckbonus       (      "DECKBONUS.WAV" , std::ios::binary);
-static std::ifstream wav_error           (          "ERROR.WAV" , std::ios::binary);
-static std::ifstream wav_flipcard        (       "FLIPCARD.WAV" , std::ios::binary);
-static std::ifstream wav_hurryup         (        "HURRYUP.WAV" , std::ios::binary);
-static std::ifstream wav_match           (          "MATCH.WAV" , std::ios::binary);
-static std::ifstream wav_newround        (       "NEWROUND.WAV" , std::ios::binary);
-static std::ifstream wav_null            (           "NULL.WAV" , std::ios::binary);
-static std::ifstream wav_select          (         "SELECT.WAV" , std::ios::binary);
-static std::ifstream wav_speedbonus      (     "SPEEDBONUS.WAV" , std::ios::binary);
-static std::ifstream wav_winner          (         "WINNER.WAV" , std::ios::binary);
-static std::ifstream wav_winround1       (      "WINROUND1.WAV" , std::ios::binary);
-static std::ifstream wav_winround2       (      "WINROUND2.WAV" , std::ios::binary);
-static std::ifstream wav_winround3       (      "WINROUND3.WAV" , std::ios::binary);
+static std::ifstream wav[16];
 
-char * snd[16];
+static char * snd[16];
 
 static DWORD tick = 16, score, hiscore, bnsgoal, elevens, timerInterval, timeIntMS;
 
@@ -168,133 +153,22 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 	initD3D(hWnd);
 
-	wav_bonus.seekg(0, std::ios::end);
-	int length = wav_bonus.tellg();
-	snd[0] = new char[length];
-	wav_bonus.seekg(0, std::ios::beg);
-	wav_bonus.read(snd[0], length);
-
-	wav_bonus.close();
-
-	wav_count11up.seekg(0, std::ios::end);
-	length = wav_count11up.tellg();
-	snd[1] = new char[length];
-	wav_count11up.seekg(0, std::ios::beg);
-	wav_count11up.read(snd[1], length);
-
-	wav_count11up.close();
-
-	wav_count11upstop.seekg(0, std::ios::end);
-	length = wav_count11upstop.tellg();
-	snd[2] = new char[length];
-	wav_count11upstop.seekg(0, std::ios::beg);
-	wav_count11upstop.read(snd[2], length);
-
-	wav_count11upstop.close();
-
-	wav_deckbonus.seekg(0, std::ios::end);
-	length = wav_deckbonus.tellg();
-	snd[3] = new char[length];
-	wav_deckbonus.seekg(0, std::ios::beg);
-	wav_deckbonus.read(snd[3], length);
-
-	wav_deckbonus.close();
-
-	wav_error.seekg(0, std::ios::end);
-	length = wav_error.tellg();
-	snd[4] = new char[length];
-	wav_error.seekg(0, std::ios::beg);
-	wav_error.read(snd[4], length);
-
-	wav_error.close();
-
-	wav_flipcard.seekg(0, std::ios::end);
-	length = wav_flipcard.tellg();
-	snd[5] = new char[length];
-	wav_flipcard.seekg(0, std::ios::beg);
-	wav_flipcard.read(snd[5], length);
-
-	wav_flipcard.close();
-
-	wav_hurryup.seekg(0, std::ios::end);
-	length = wav_hurryup.tellg();
-	snd[6] = new char[length];
-	wav_hurryup.seekg(0, std::ios::beg);
-	wav_hurryup.read(snd[6], length);
-
-	wav_hurryup.close();
-
-	wav_match.seekg(0, std::ios::end);
-	length = wav_match.tellg();
-	snd[7] = new char[length];
-	wav_match.seekg(0, std::ios::beg);
-	wav_match.read(snd[7], length);
-
-	wav_match.close();
-
-	wav_newround.seekg(0, std::ios::end);
-	length = wav_newround.tellg();
-	snd[8] = new char[length];
-	wav_newround.seekg(0, std::ios::beg);
-	wav_newround.read(snd[8], length);
-
-	wav_newround.close();
-
-	wav_null.seekg(0, std::ios::end);
-	length = wav_null.tellg();
-	snd[9] = new char[length];
-	wav_null.seekg(0, std::ios::beg);
-	wav_null.read(snd[9], length);
-
-	wav_null.close();
-
-	wav_select.seekg(0, std::ios::end);
-	length = wav_select.tellg();
-	snd[10] = new char[length];
-	wav_select.seekg(0, std::ios::beg);
-	wav_select.read(snd[10], length);
-
-	wav_select.close();
-
-	wav_speedbonus.seekg(0, std::ios::end);
-	 length = wav_speedbonus.tellg();
-	snd[11] = new char[length];
-	wav_speedbonus.seekg(0, std::ios::beg);
-	wav_speedbonus.read(snd[11], length);
-
-	wav_speedbonus.close();
-
-	wav_winner.seekg(0, std::ios::end);
-	 length = wav_winner.tellg();
-	snd[12] = new char[length];
-	wav_winner.seekg(0, std::ios::beg);
-	wav_winner.read(snd[12], length);
-
-	wav_winner.close();
-
-	wav_winround1.seekg(0, std::ios::end);
-	length = wav_winround1.tellg();
-	snd[13] = new char[length];
-	wav_winround1.seekg(0, std::ios::beg);
-	wav_winround1.read(snd[13], length);
-
-	wav_winround1.close();
-
-	wav_winround2.seekg(0, std::ios::end);
-	length = wav_winround2.tellg();
-	snd[14] = new char[length];
-	wav_winround2.seekg(0, std::ios::beg);
-	wav_winround2.read(snd[14], length);
-
-	wav_winround2.close();
-
-	wav_winround3.seekg(0, std::ios::end);
-	length = wav_winround3.tellg();
-	snd[15] = new char[length];
-	wav_winround3.seekg(0, std::ios::beg);
-	wav_winround3.read(snd[15], length);
-
-	wav_winround3.close();
+	{
+		LPCSTR wavfs[16] = { "BONUS.WAV","COUNT11UP.WAV",
+			"COUNT11UPSTOP.WAV","DECKBONUS.WAV",
+			"ERROR.WAV","FLIPCARD.WAV","HURRYUP.WAV",
+			"MATCH.WAV","NEWROUND.WAV","NULL.WAV","SELECT.WAV",
+			"SPEEDBONUS.WAV","WINNER.WAV","WINROUND1.WAV",
+			"WINROUND2.WAV","WINROUND3.WAV" };
+		for (int i = 0; i < 16; i++)
+		{
+			wav[i].open(wavfs[i], std::ios::binary);
+			wav[i].seekg(0, std::ios::end);
+			int length = wav[i].tellg();
+			wav[i].seekg(0, std::ios::beg);
+			wav[i].read(snd[i], length);
+		}
+	}
 
 	stringstream << workingdir() << + "\\GAME.INI";
 
@@ -735,21 +609,6 @@ int choose(int choice1, int choice2, int choice3, int choice4)
 		return choice3;
 	case 3:
 		return choice4;
-	default:
-		break;
-	}
-}
-
-int choose3(int choice1, int choice2, int choice3)
-{
-	switch (int(rand() * 3))
-	{
-	case 0:
-		return choice1;
-	case 1:
-		return choice2;
-	case 2:
-		return choice3;
 	default:
 		break;
 	}
@@ -1480,7 +1339,6 @@ static void render_frame(void)
 
 	if (pause > 0)
 		pause--;
-
 
 	if (frame >= ULLONG_MAX)
 		exit(score);
