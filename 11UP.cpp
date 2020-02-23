@@ -5,12 +5,11 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <windows.h>
 
 #pragma comment (lib, "d3d9.lib")
 #pragma comment (lib, "d3dx9.lib")
 #pragma comment (lib, "winmm.lib")
-
-#include <windows.h>
 
 static LPDIRECT3DTEXTURE9 textures[4];
 static LPD3DXSPRITE drawing;
@@ -20,10 +19,6 @@ static D3DXVECTOR2 card_pos[23], card_suit_pos[23], card_next_pos, card_score_po
 static LPD3DXFONT fonts[16];
 static POINT mousepos;
 static HFONT hfonts[16];
-
-static std::ifstream wav[16];
-
-static char * snd[16];
 
 static DWORD tick = 16, score, hiscore, bnsgoal, elevens, timerInterval, timeIntMS;
 
@@ -87,11 +82,13 @@ static void drawText(int i, LPSTR text, int left, int top, int right, int bottom
 	fonts[i]->DrawTextA(text, -1, &rect, NULL, COLOR);
 }
 
-static void playSnd(byte i)
+static void playSnd(LPCSTR fname)
 {
 	if (sound)
-		PlaySound(snd[i], NULL, SND_ASYNC | SND_MEMORY | SND_NOWAIT);
-}	
+		PlaySound(fname,
+			GetModuleHandle(NULL),
+			SND_ASYNC | SND_FILENAME | SND_NOWAIT);
+}
 
 static void NewTexture(LPCSTR fname, D3DFORMAT fmt, LPDIRECT3DTEXTURE9 *tex)
 {
@@ -152,23 +149,6 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	ShowWindow(hWnd, nCmdShow);
 
 	initD3D(hWnd);
-
-	{
-		LPCSTR wavfs[16] = { "BONUS.WAV","COUNT11UP.WAV",
-			"COUNT11UPSTOP.WAV","DECKBONUS.WAV",
-			"ERROR.WAV","FLIPCARD.WAV","HURRYUP.WAV",
-			"MATCH.WAV","NEWROUND.WAV","NULL.WAV","SELECT.WAV",
-			"SPEEDBONUS.WAV","WINNER.WAV","WINROUND1.WAV",
-			"WINROUND2.WAV","WINROUND3.WAV" };
-		for (int i = 0; i < 16; i++)
-		{
-			wav[i].open(wavfs[i], std::ios::binary);
-			wav[i].seekg(0, std::ios::end);
-			int length = wav[i].tellg();
-			wav[i].seekg(0, std::ios::beg);
-			wav[i].read(snd[i], length);
-		}
-	}
 
 	stringstream << workingdir() << + "\\GAME.INI";
 
@@ -657,15 +637,15 @@ static void selectCard(int i)
 		if (!selcards[i] && curnum + getCardNum(i) < 11)
 		{
 			selcards[i] = true;
-			playSnd(10);
+			playSnd("SELECT.WAV");
 		}
 		else if (selcards[i])
 		{
 			selcards[i] = false;
-			playSnd(10);
+			playSnd("SELECT.WAV");
 		}
 		else
-			playSnd(4);
+			playSnd("ERROR.WAV");
 	LMB = false;
 }
 
@@ -694,7 +674,7 @@ static void flipCard()
 			if (curdeckcard >= decksizeorig)
 				curdeckcard = 0;
 		}
-		playSnd(5);
+		playSnd("FLIPCARD.WAV");
 		cards[22] = deck[curdeckcard];
 	}
 }
@@ -769,7 +749,7 @@ static void render_frame(void)
 			drawText(3, "WINNER", 110, 104, 640, 480, D3DCOLOR_XRGB(192, 0, 255));
 			drawText(5, "PLAYER 1", 120, 220, 640, 480, D3DCOLOR_XRGB(0, 255, 0));
 			if (frame == ULLONG_MAX - 1 && sound)
-				PlaySoundA(snd[12],NULL,SND_MEMORY);
+				PlaySoundA("WINNER.WAV",NULL,SND_FILENAME);
 		}
 
 		if (score > bnsgoal && !bnsround)
@@ -783,7 +763,7 @@ static void render_frame(void)
 			if (timer > 0)
 			{
 				timer -= 1;
-				playSnd(11);
+				playSnd("SPEEDBONUS.WAV");
 				speedbns += 1;
 				score += 150;
 				frame -= 2;
@@ -822,7 +802,7 @@ static void render_frame(void)
 		{
 			won = false;
 			if (sound)
-				PlaySoundA(snd[7], NULL, SND_MEMORY);
+				PlaySoundA("HURRYUP.WAV", NULL, SND_FILENAME);
 			Sleep(2500);
 			frame = ULLONG_MAX - 0xff;
 		}
@@ -833,7 +813,7 @@ static void render_frame(void)
 			{
 				decksize--;
 				score += 1000;
-				playSnd(3);
+				playSnd("DECKBONUS.WAV");
 				Sleep(70);
 				frame -= 4;
 			}
@@ -850,7 +830,7 @@ static void render_frame(void)
 			{
 				__asm add[score], 1000
 				if (sound)
-					PlaySoundA(snd[1], NULL, SND_NOSTOP | SND_MEMORY | SND_ASYNC | SND_LOOP);
+					PlaySoundA("COUNT11S.WAV", NULL, SND_NOSTOP | SND_FILENAME | SND_ASYNC | SND_LOOP);
 				flash11s = !flash11s;
 				frame -= 15;
 				__asm dec[elevens]
@@ -860,7 +840,7 @@ static void render_frame(void)
 				if (frame >= ULLONG_MAX - 0xf1) {
 					flash11s = false;
 					if (sound)
-						PlaySoundA(snd[2], NULL, SND_MEMORY);
+						PlaySoundA("COUNT11STOP.WAV", NULL, SND_FILENAME);
 					stopcounting11s = true;
 					if (level < maxlvl)
 					{
@@ -892,7 +872,7 @@ static void render_frame(void)
 			case 0xffff0 - (3 * 4) :
 			case 0xffff0 - (3 * 5) :
 			case 0xffff0 - (3 * 6) :
-				playSnd(0);
+				playSnd("BONUS.WAV");
 				score += 1000;
 				break;
 			case 0xffff0 - (3 * 8) :
@@ -910,14 +890,14 @@ static void render_frame(void)
 		{
 			timeleft = timer;
 			for (byte i = 0; i < 4; i++) {
-				playSnd(13);
+				playSnd("WINROUND1.WAV");
 				Sleep(730);
 				if (i == 1 || i == 3) {
-					playSnd(14);
+					playSnd("WINROUND2.WAV");
 					Sleep(1234);
 				}
 			}
-			playSnd(15);
+			playSnd("WINROUND3.WAV");
 			Sleep(1363);
 			// 6922
 		}
@@ -1001,7 +981,7 @@ static void render_frame(void)
 						timer--;
 						timerInterval = timeIntMS / tick;
 						if (timer == 6)
-							playSnd(6);
+							playSnd("HURRYUP.WAV");
 					}
 			}
 		}
@@ -1082,7 +1062,7 @@ static void render_frame(void)
 				selcards[i] = 0;
 			}
 			pause = 10;
-			playSnd(7);
+			playSnd("MATCH.WAV");
 			__asm inc[elevens]
 		}
 
@@ -1146,73 +1126,73 @@ static void render_frame(void)
 				if (!cardexists[21] || ((cheats >> 0) & 1))
 					selectCard(19);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(18))
 				if (!cardexists[21] || ((cheats >> 0) & 1))
 					selectCard(18);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(17))
 				if (!cardexists[20] || ((cheats >> 0) & 1))
 					selectCard(17);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(16))
 				if (!cardexists[20] || ((cheats >> 0) & 1))
 					selectCard(16);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(15))
 				if (!cardexists[19] || ((cheats >> 0) & 1))
 					selectCard(15);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(14))
 				if ((!cardexists[18] && !cardexists[19]) || ((cheats >> 0) & 1))
 					selectCard(14);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(13))
 				if (!cardexists[18] || ((cheats >> 0) & 1))
 					selectCard(13);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(12))
 				if (!cardexists[17] || ((cheats >> 0) & 1))
 					selectCard(12);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(11))
 				if ((!cardexists[16] && !cardexists[17]) || ((cheats >> 0) & 1))
 					selectCard(11);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(10))
 				if (!cardexists[16] || ((cheats >> 0) & 1))
 					selectCard(10);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(9))
 				if ((!cardexists[14] && !cardexists[15]) || ((cheats >> 0) & 1))
 					selectCard(9);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(8))
 				if ((!cardexists[13] && !cardexists[14]) || ((cheats >> 0) & 1))
 					selectCard(8);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(7))
 				selectCard(7);
@@ -1221,49 +1201,49 @@ static void render_frame(void)
 				if ((!cardexists[11] && !cardexists[12]) || ((cheats >> 0) & 1))
 					selectCard(6);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(5))
 				if ((!cardexists[10] && !cardexists[11]) || ((cheats >> 0) & 1))
 					selectCard(5);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(4))
 				if ((!cardexists[8] && !cardexists[9]) || ((cheats >> 0) & 1))
 					selectCard(4);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(3))
 				if ((!cardexists[7] && !cardexists[13]) || ((cheats >> 0) & 1))
 					selectCard(3);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(2))
 				if ((!cardexists[7] && !cardexists[12]) || ((cheats >> 0) & 1))
 					selectCard(2);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(1))
 				if ((!cardexists[5] && !cardexists[6]) || ((cheats >> 0) & 1))
 					selectCard(1);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(0))
 				if ((!cardexists[2] && !cardexists[3]) || ((cheats >> 0) & 1))
 					selectCard(0);
 				else
-					playSnd(4);
+					playSnd("ERROR.WAV");
 		}
 
 		switch (frame)
 		{
 		case 10:
-			playSnd(8);
+			playSnd("NEWROUND.WAV");
 			break;
 		case 134:
 		case 138:
@@ -1288,7 +1268,7 @@ static void render_frame(void)
 		case 214:
 		case 218:
 		case 222:
-			playSnd(5);
+			playSnd("FLIPCARD.WAV");
 			break;
 		}
 
