@@ -22,9 +22,9 @@ static HFONT hfonts[16];
 
 static DWORD tick = 16, score, hiscore, bnsgoal, elevens, timerInterval, timeIntMS;
 
-static byte cards[23], deckleft, timer, timeleft, curnum, level = 0, maxlvl, bonuslvl, speedbns, cheats, deck[8192];
+static byte cards[23], deckleft, time, timer, timeleft, curnum, level = 0, maxlvl, bonuslvl, speedbns, cheats, deck[8192];
 
-static bool cardexists[23], selcards[23], matchedcards[23], LMB, matched, won, flash11s = false, bnsround, stopcounting11s, paused, checkforwin, sound, pressedpause;//, hinting, hint[23];
+static bool /*cardexists[23],*/ selcards[23], matchedcards[23], LMB, matched, won, flash11s = false, bnsround, stopcounting11s, paused, checkforwin, sound, pressedpause;//, hinting, hint[23];
 
 static unsigned int seed, seedampmin, seedampmax, seedamp, decksize, decksizeorig, curdeckcard, lastTick;
 
@@ -84,7 +84,8 @@ static void drawText(int i, LPSTR text, int left, int top, int right, int bottom
 
 static void playSnd(LPCSTR fname)
 {
-	if (sound)
+	//if (sound)
+	if ((cheats >> 3) & 1)
 		PlaySound(fname,
 			GetModuleHandle(NULL),
 			SND_ASYNC | SND_FILENAME | SND_NOWAIT);
@@ -168,9 +169,10 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	cheats |= GetPrivateProfileInt(title, "Noclip", 0, ini) << 0;
 	cheats |= GetPrivateProfileInt(title, "DebugInfo", 0, ini) << 1;
 	cheats |= GetPrivateProfileInt(title, "DebugInfoCard", 0, ini) << 2;
-	sound = GetPrivateProfileInt(title, "Sound", 1, ini);
+	cheats |= GetPrivateProfileInt(title, "Sound", 1, ini) << 3;
+	//sound = GetPrivateProfileInt(title, "Sound", 1, ini);
 	timeIntMS = GetPrivateProfileInt(title, "TimeInterval", 2500, ini);
-	timeleft = GetPrivateProfileInt(title, "Time", 36, ini);
+	time = GetPrivateProfileInt(title, "Time", 36, ini);
 	//hinting = GetPrivateProfileInt(title, "Hints", 0, ini);
 
 	__asm {
@@ -374,10 +376,10 @@ void initD3D(HWND hWnd)
 
 	for (int i = 0; i < 22; i++)
 	{
-		click_areas[i].left = card_pos[i].x;
-		click_areas[i].top = card_pos[i].y;
-		click_areas[i].right = card_pos[i].x + 66;
-		click_areas[i].bottom = card_pos[i].y + 83;
+		click_areas[i].left = (LONG)card_pos[i].x;
+		click_areas[i].top = (LONG)card_pos[i].y;
+		click_areas[i].right = (LONG)card_pos[i].x + 66;
+		click_areas[i].bottom = (LONG)card_pos[i].y + 83;
 	}
 
 	card_rect_next.left = 56;
@@ -394,8 +396,8 @@ void initD3D(HWND hWnd)
 		card_suit_pos[i].x += 33;
 	}
 
-	for (int i = 0; i < 23; i++)
-		cardexists[i] = true;
+	//for (int i = 0; i < 23; i++)
+		//cardexists[i] = true;
 
 	click_areas[22].left = 331;
 	click_areas[22].top = 359;
@@ -461,8 +463,6 @@ void initD3D(HWND hWnd)
 		timer_pos[1+i].x = timer_pos[0+i].x + 17;
 		timer_pos[1+i].y = timer_pos[0+i].y;
 	}
-
-	
 
 	timer_pos[2].x = timer_pos[1].x + 17;
 	timer_pos[2].y = timer_pos[1].y;
@@ -633,7 +633,8 @@ void drawCard(int i)
 
 static void selectCard(int i)
 {
-	if (cardexists[i])
+	//if (cardexists[i])
+	if (cards[i] != 255)
 		if (!selcards[i] && curnum + getCardNum(i) < 11)
 		{
 			selcards[i] = true;
@@ -656,13 +657,13 @@ static void flipCard()
 		for (int i = 0; i < 23; i++)
 			selcards[i] = 0;
 		for (int i = 0; i < 22; i++)
-			if (!cardexists[i])
+			//if (!cardexists[i])
+			if (cards[i] == 255)
 			{
 				deck[curdeckcard] = 255;
 				decksize--;
 				cards[i] = cards[22];
 				if (score > 500) score -= 500; else score = 0;
-				cardexists[i] = true;
 				break;
 			}
 		curdeckcard++;
@@ -677,11 +678,13 @@ static void flipCard()
 		playSnd("FLIPCARD.WAV");
 		cards[22] = deck[curdeckcard];
 	}
+	else
+		playSnd("ERROR.WAV");
 }
 
 static bool ifSelectedCard(int i)
 {
-	return clickedArea(click_areas[i]) && cardexists[i];
+	return clickedArea(click_areas[i]) && cards[i] != 255;//cardexists[i];
 }
 
 static void render_frame(void)
@@ -711,7 +714,8 @@ static void render_frame(void)
 		for (int i = 0; i < 23; i++)
 		{
 			if (frame >= 130 + (4 * i))
-				if (cardexists[i] && cards[i] != 255)
+				//if (cardexists[i] && cards[i] != 255)
+				if (cards[i] != 255)
 				{
 					drawCard(i);
 					if (selcards[i] && !paused && !pressedpause) {
@@ -748,7 +752,8 @@ static void render_frame(void)
 			won = false;
 			drawText(3, "WINNER", 110, 104, 640, 480, D3DCOLOR_XRGB(192, 0, 255));
 			drawText(5, "PLAYER 1", 120, 220, 640, 480, D3DCOLOR_XRGB(0, 255, 0));
-			if (frame == ULLONG_MAX - 1 && sound)
+			//if (frame == ULLONG_MAX - 1 && sound)
+			if (frame == ULLONG_MAX - 1 && ((cheats >> 3) & 1))
 				PlaySoundA("WINNER.WAV",NULL,SND_FILENAME);
 		}
 
@@ -801,7 +806,8 @@ static void render_frame(void)
 		if (frame == ULLONG_MAX - 0xfffffa && !won)
 		{
 			won = false;
-			if (sound)
+			//if (sound)
+			if ((cheats >> 3) & 1)
 				PlaySoundA("HURRYUP.WAV", NULL, SND_FILENAME);
 			Sleep(2500);
 			frame = ULLONG_MAX - 0xff;
@@ -829,7 +835,8 @@ static void render_frame(void)
 			if (elevens > 0)
 			{
 				__asm add[score], 1000
-				if (sound)
+				//if (sound)
+				if ((cheats >> 3) & 1)
 					PlaySoundA("COUNT11S.WAV", NULL, SND_NOSTOP | SND_FILENAME | SND_ASYNC | SND_LOOP);
 				flash11s = !flash11s;
 				frame -= 15;
@@ -839,14 +846,17 @@ static void render_frame(void)
 			{
 				if (frame >= ULLONG_MAX - 0xf1) {
 					flash11s = false;
-					if (sound)
+					//if (sound)
+					if ((cheats >> 3) & 1)
 						PlaySoundA("COUNT11STOP.WAV", NULL, SND_FILENAME);
 					stopcounting11s = true;
 					if (level < maxlvl)
 					{
 						frame = 10;
-						for (int i = 0; i < 23; i++)
-							cardexists[i] = true;
+						won = false;
+						checkforwin = false;
+						//for (int i = 0; i < 23; i++)
+							//cardexists[i] = true;
 						level++;
 					}
 					else
@@ -901,11 +911,6 @@ static void render_frame(void)
 			Sleep(1363);
 			// 6922
 		}
-
-		checkforwin = true;
-		for (byte i = 0; i < 22; i++)
-			if (cardexists[i])
-				checkforwin = false;
 
 		if (checkforwin && frame < ULLONG_MAX - 0xfffff)
 		{
@@ -1016,9 +1021,18 @@ static void render_frame(void)
 						else
 							deck[i] = 10;
 			cards[22] = deck[0];
-			timer = 36;
-			timeleft = 36;
+			timer = time;
+			timeleft = time;
 		}
+
+		checkforwin = true;
+		for (byte i = 0; i < 22; i++)
+			if (cards[i] != 255) {
+				//if (cardexists[i]) {
+				//if (cardexists[i])
+				checkforwin = false;
+				break;
+			}
 
 		if (frame >= 10 && frame <= 130)
 		{
@@ -1069,12 +1083,14 @@ static void render_frame(void)
 		if (pause == 2)
 		{
 			for (int i = 0; i < 23; i++)
-				if (matchedcards[i] && cardexists[i])
+				if (matchedcards[i] && cards[i] != 255)//cardexists[i])
 				{
 					selcards[i] = false;
 					if (i != 22)
-						cardexists[i] = false;
+						cards[i] = 255;
+						//cardexists[i] = false;
 					else
+					if (i == 22)
 					{
 						if (decksize > 0)
 						{
@@ -1093,10 +1109,12 @@ static void render_frame(void)
 								cards[22] = deck[curdeckcard];
 							}
 							if (decksize == 0)
-								cardexists[22] = false;
+								cards[22] = 255;
+							//cardexists[22] = false;
 						}
 						else
-							cardexists[22] = false;
+							cards[22] = 255;
+							//cardexists[22] = false;
 					}
 					matchedcards[i] = false;
 				}
@@ -1123,73 +1141,73 @@ static void render_frame(void)
 				selectCard(20);
 
 			if (ifSelectedCard(19))
-				if (!cardexists[21] || ((cheats >> 0) & 1))
+				if (cards[21] == 255 || ((cheats >> 0) & 1))
 					selectCard(19);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(18))
-				if (!cardexists[21] || ((cheats >> 0) & 1))
+				if (cards[21] == 255 || ((cheats >> 0) & 1))
 					selectCard(18);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(17))
-				if (!cardexists[20] || ((cheats >> 0) & 1))
+				if (cards[20] == 255 || ((cheats >> 0) & 1))
 					selectCard(17);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(16))
-				if (!cardexists[20] || ((cheats >> 0) & 1))
+				if (cards[20] == 255 || ((cheats >> 0) & 1))
 					selectCard(16);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(15))
-				if (!cardexists[19] || ((cheats >> 0) & 1))
+				if (cards[19] == 255 || ((cheats >> 0) & 1))
 					selectCard(15);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(14))
-				if ((!cardexists[18] && !cardexists[19]) || ((cheats >> 0) & 1))
+				if ((cards[18] == 255 && cards[19] == 255) || ((cheats >> 0) & 1))
 					selectCard(14);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(13))
-				if (!cardexists[18] || ((cheats >> 0) & 1))
+				if (cards[18] == 255 || ((cheats >> 0) & 1))
 					selectCard(13);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(12))
-				if (!cardexists[17] || ((cheats >> 0) & 1))
+				if (cards[17] == 255 || ((cheats >> 0) & 1))
 					selectCard(12);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(11))
-				if ((!cardexists[16] && !cardexists[17]) || ((cheats >> 0) & 1))
+				if ((cards[16] == 255 && cards[17] == 255) || ((cheats >> 0) & 1))
 					selectCard(11);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(10))
-				if (!cardexists[16] || ((cheats >> 0) & 1))
+				if (cards[16] == 255 || ((cheats >> 0) & 1))
 					selectCard(10);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(9))
-				if ((!cardexists[14] && !cardexists[15]) || ((cheats >> 0) & 1))
+				if ((cards[14] == 255 && cards[15] == 255) || ((cheats >> 0) & 1))
 					selectCard(9);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(8))
-				if ((!cardexists[13] && !cardexists[14]) || ((cheats >> 0) & 1))
+				if ((cards[13] == 255 && cards[14] == 255) || ((cheats >> 0) & 1))
 					selectCard(8);
 				else
 					playSnd("ERROR.WAV");
@@ -1198,43 +1216,43 @@ static void render_frame(void)
 				selectCard(7);
 
 			if (ifSelectedCard(6))
-				if ((!cardexists[11] && !cardexists[12]) || ((cheats >> 0) & 1))
+				if ((cards[11] == 255 && cards[12] == 255) || ((cheats >> 0) & 1))
 					selectCard(6);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(5))
-				if ((!cardexists[10] && !cardexists[11]) || ((cheats >> 0) & 1))
+				if ((cards[10] == 255 && cards[11] == 255) || ((cheats >> 0) & 1))
 					selectCard(5);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(4))
-				if ((!cardexists[8] && !cardexists[9]) || ((cheats >> 0) & 1))
+				if ((cards[8] == 255 && cards[9] == 255) || ((cheats >> 0) & 1))
 					selectCard(4);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(3))
-				if ((!cardexists[7] && !cardexists[13]) || ((cheats >> 0) & 1))
+				if ((cards[7] == 255 && cards[13] == 255) || ((cheats >> 0) & 1))
 					selectCard(3);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(2))
-				if ((!cardexists[7] && !cardexists[12]) || ((cheats >> 0) & 1))
+				if ((cards[7] == 255 && cards[12] == 255) || ((cheats >> 0) & 1))
 					selectCard(2);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(1))
-				if ((!cardexists[5] && !cardexists[6]) || ((cheats >> 0) & 1))
+				if ((cards[5] == 255 && cards[6] == 255) || ((cheats >> 0) & 1))
 					selectCard(1);
 				else
 					playSnd("ERROR.WAV");
 
 			if (ifSelectedCard(0))
-				if ((!cardexists[2] && !cardexists[3]) || ((cheats >> 0) & 1))
+				if ((cards[2] == 255 && cards[3] == 255) || ((cheats >> 0) & 1))
 					selectCard(0);
 				else
 					playSnd("ERROR.WAV");

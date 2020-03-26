@@ -2,30 +2,94 @@
 <CheatTable CheatEngineTableVersion="24">
   <CheatEntries>
     <CheatEntry>
-      <ID>11</ID>
+      <ID>12</ID>
       <Description>"Score"</Description>
-      <VariableType>2 Bytes</VariableType>
-      <Address>11UP.exe+59CE0</Address>
+      <VariableType>4 Bytes</VariableType>
+      <Address>11UP.EXE+9B048</Address>
       <CheatEntries>
         <CheatEntry>
-          <ID>9</ID>
-          <Description>"Hi-score"</Description>
+          <ID>13</ID>
+          <Description>"Hiscore"</Description>
           <VariableType>4 Bytes</VariableType>
-          <Address>11UP.exe+57AB0</Address>
+          <Address>11UP.EXE+98E1C</Address>
         </CheatEntry>
       </CheatEntries>
     </CheatEntry>
     <CheatEntry>
-      <ID>8</ID>
-      <Description>"11's"</Description>
-      <VariableType>4 Bytes</VariableType>
-      <Address>11UP.exe+57BFC</Address>
+      <ID>15</ID>
+      <Description>"Cards"</Description>
+      <ShowAsHex>1</ShowAsHex>
+      <VariableType>Array of byte</VariableType>
+      <ByteLength>23</ByteLength>
+      <Address>00498BA8</Address>
+      <CheatEntries>
+        <CheatEntry>
+          <ID>14</ID>
+          <Description>"Cards Existing"</Description>
+          <VariableType>Array of byte</VariableType>
+          <ByteLength>23</ByteLength>
+          <Address>00498C38</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>16</ID>
+          <Description>"Selected Cards"</Description>
+          <VariableType>Array of byte</VariableType>
+          <ByteLength>23</ByteLength>
+          <Address>0049902C</Address>
+        </CheatEntry>
+      </CheatEntries>
     </CheatEntry>
     <CheatEntry>
-      <ID>10</ID>
-      <Description>"Deck Size"</Description>
+      <ID>143</ID>
+      <Description>"11s"</Description>
       <VariableType>4 Bytes</VariableType>
-      <Address>11UP.exe+57BF8</Address>
+      <Address>11UP.EXE+98F64</Address>
+      <CheatEntries>
+        <CheatEntry>
+          <ID>144</ID>
+          <Description>"Deck Size"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>11UP.EXE+98F60</Address>
+        </CheatEntry>
+      </CheatEntries>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>148</ID>
+      <Description>"Round"</Description>
+      <VariableType>Byte</VariableType>
+      <Address>11UP.EXE+9B064</Address>
+      <CheatEntries>
+        <CheatEntry>
+          <ID>147</ID>
+          <Description>"Max Rounds"</Description>
+          <VariableType>Byte</VariableType>
+          <Address>11UP.EXE+98FD3</Address>
+        </CheatEntry>
+      </CheatEntries>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>18</ID>
+      <Description>"Frame"</Description>
+      <VariableType>8 Bytes</VariableType>
+      <Address>11UP.EXE+9B050</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>17</ID>
+      <Description>"Pause"</Description>
+      <VariableType>8 Bytes</VariableType>
+      <Address>00498F68</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>142</ID>
+      <Description>"Time Interval"</Description>
+      <VariableType>4 Bytes</VariableType>
+      <Address>11UP.EXE+98B3C</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>141</ID>
+      <Description>"Timer"</Description>
+      <VariableType>Byte</VariableType>
+      <Address>11UP.EXE+98B50</Address>
     </CheatEntry>
   </CheatEntries>
   <UserdefinedSymbols/>
