@@ -32,9 +32,9 @@
 		<meta http-equiv="Cache-Control" content="no-cache">
 		<title>11UP</title>
 		<ul id="image-preload">
-			<li><img src='CARDA.PNG'></li>
-			<li><img src='BACKDROP.PNG'></li>
-			<li><img src='11SFLASH.PNG'></li>
+			<li><img id="cardtex" src='CARDA.PNG'></li>
+			<li><img id="backtex" src='BACKDROP.PNG'></li>
+			<li><img id="11fltex" src='11SFLASH.PNG'></li>
 		</ul>
 		<script>
 			var score = 0, hiscore = 0, bnsgoal, elevens, title = "11UP",
@@ -42,14 +42,16 @@
 				deckleft, timer, timeleft = 36, curnum, maxlvl = 1, bonuslvl, __snd = null,
 				curdeckcard, speedbns, cardexists = [] /* 2 */, params =
 				new URL(window.location.href).searchParams, selcards = []
-				/* 2 */, matchedcards = [] /* 2 */, matched, won, flash11s, sound = false,
+				/* 2 */, matchedcards = [] /* 2 */, matched, won, flash11s, sound = true,
 				stopcounting11s, noclip, seed, frame = 0, maxframes = 4294967296,
 				debugdraw, debugdrawcard, frame, pause, drawmode = 1, volume = 1, mousev = null,
 				snd_newround = new Audio('NEWROUND.WAV'),
 				snd_flipcard = new Audio('FLIPCARD.WAV'),
 				snd_select = new Audio('SELECT.WAV'),
 				snd_winner = new Audio('WINNER.WAV'),
-				snd_error = new Audio('ERROR.WAV'), paused, pressedpause,
+				snd_error = new Audio('ERROR.WAV'),
+				paused, pressedpause, checkforwin, cheats, decksizeorig,
+				customCards = "01234567890000000000000", time, cardtex = document.getElementById("cardtex"),
 				card_rect_num = new Array(), card_rect_suit = new Array(), card_suit_pos = new Array(), timer_rect_lights = new Array(),
 				card_pos = new Array(), serect, click_areas, card_rect_next, card_next_pos, card_score_rect = new Array(),
 				card_score_pos = new Array(), timer_pos = new Array(), flash_11s_pos = new Array(), flash_11s_rect = new Array();
@@ -65,23 +67,22 @@
 		return temp;
 	}
 	
+	{
+	
 	var card_rect = { left: 56, top: 59, right: 122, bottom: 142 };
 
 	for (var i = 0; i < 10; i++)
-	{
 		for (var j = 0; j < 2; j++)
-		{
 			//var temp = {top: i * 22,
 						//left: j * 28,
 						//right: (j + 1) * 28,
 						//bottom: (i + 1) * 22};
-			card_rect_num[i * 2 + j] = box(i * 22, j * 28, (j + 1) * 28, (i + 1) * 22);//temp;
-		}
-	}
+			card_rect_num[i * 2 + j] = box(j * 26, i * 22, (j + 1) * 26, (i + 1) * 22);//temp;
 
-	for (var i = 0; i < 2; i++)
-		for (var j = 0; j < 2; j++)
-			card_rect_suit[i * 2 + j] = box(i * 29, 56 + j * 2, 56 + ((j + 1) * 26), (i + 1) * 29);
+	card_rect_suit[0] = box(56,0,24,24);
+	card_rect_suit[1] = box(81,0,24,30);
+	card_rect_suit[2] = box(56,30,23,25);
+	card_rect_suit[3] = box(81,30,26,27);
 
 	card_pos[0] = point(287,112);
 	card_pos[1] = point(card_pos[0].x - 161, card_pos[0].y + 41);
@@ -128,6 +129,7 @@
 	//for (var i = 0; i < 23; i++)
 		//cardexists[i] = true;
 
+	{
 	click_areas[22] = box(0,0,0,0);
 	
 	click_areas[22].left = 331;
@@ -323,6 +325,8 @@
 	flash_11s_pos = point(60,105);
 
 	flash_11s_rect = box(0, 0, 106, 46);
+	}
+}
 
 var getCardNum = function(card)
 {
@@ -339,8 +343,8 @@ var getCardColor = function(card)
 }
 
 var clickedArea = function(rct) {
-	return (mousev.clientX >= rct.left && mousev.clientX <= rct.right
-		&& mousev.clientY >= rct.top && mousev.clientY <= rct.bottom && LMB);
+	return (mouse.clientX >= rct.left && mouse.clientX <= rct.right
+		&& mouse.clientY >= rct.top && mouse.clientY <= rct.bottom && LMB);
 }
 
 var selectCard = function(i)
@@ -397,6 +401,33 @@ var flipCard = function()
 var ifSelectedCard = function(i)
 {
 	return clickedArea(click_areas[i]) && cards[i] !== 255;
+}
+
+var drawCard = function(i)
+{
+	ctx.drawImage(cardtex,card_rect.left,card_rect.top,66,83,card_pos[i].x-card_rect.left+3,card_pos[i].y-card_rect.top+16,66,83);
+	//drawing->Draw(textures[1], &card_rect, NULL, NULL, 0, &card_pos[i], 0xFFFFFFFF);
+	card_pos[i].x += 4;
+	card_pos[i].y += 4;
+	if (!paused && !pressedpause)
+		ctx.drawImage(cardtex,card_rect_num[getCardNum(i) + (((cards[i] >> 5) & 0x01) * 10)].left,
+							card_rect_num[getCardNum(i) + (((cards[i] >> 5) & 0x01) * 10)].top,
+							28,22,card_pos[i].x-card_rect.left+3,card_pos[i].y-card_rect.top+16,28,22);
+	//if (!paused && !pressedpause)
+		//drawing->Draw(textures[1], &card_rect_num[getCardNum(i) + (((cards[i] >> 5) & 0x01) * 10)], NULL, NULL, 0, &card_pos[i], 0xFFFFFFFF);
+	card_pos[i].x -= 4;
+	card_pos[i].y -= 4;
+	card_suit_pos[i].x += 3;
+	card_suit_pos[i].y += 3;
+	if (!paused && !pressedpause)
+		ctx.drawImage(cardtex,card_rect_suit[getCardColor(i)].left,card_rect_suit[getCardColor(i)].top,
+			card_rect_suit[getCardColor(i)].right,card_rect_suit[getCardColor(i)].bottom,
+			card_suit_pos[i].x-20,card_suit_pos[i].y-42,
+			card_rect_suit[getCardColor(i)].right,card_rect_suit[getCardColor(i)].bottom);
+	//if (!paused && !pressedpause)
+		//drawing->Draw(textures[1], &card_rect_suit[getCardColor(i)], NULL, NULL, 0, &card_suit_pos[i], 0xFFFFFFFF);
+	card_suit_pos[i].x -= 3;
+	card_suit_pos[i].y -= 3;
 }
 
 			document.firstElementChild.style.zoom = "reset";
@@ -470,14 +501,14 @@ var ifSelectedCard = function(i)
 						if (drawmode) {
 						ctx.imageSmoothingEnabled = false;
 						ctx.clearRect(0, 0, canvas.width, canvas.height);
-						ctx.font = "bold 80px 'Arial Narrow', Arial, sans-serif, Times, Times New Roman, serif, Courier, 'Courier New', monospace";
+						ctx.font = "bold 54px 'Arial Narrow', Arial, sans-serif, Times, Times New Roman, serif, Courier, 'Courier New', monospace";
 						ctx.fillStyle = "yellow"; }
 						if (frame >= 10 && frame <= 130 && drawmode)
 						{
 							if (level === maxlvl && bnsround) { }
 								//drawText(1, "BONUS ROUND", 140, 200, 600, 400, D3DCOLOR_XRGB(255, 255, 0));
 							else
-								ctx.fillText("ROUND "+(level+1), 173, 250);
+								ctx.fillText("ROUND "+(level+1), 220, 250);
 							/*if (!bnsround && level === maxlvl)
 							{
 								stringstream << "BONUS ROUND AT " << bnsgoal;
@@ -531,7 +562,7 @@ var ifSelectedCard = function(i)
 				//if (cardexists[i] && cards[i] !== 255)
 				if (cards[i] !== 255)
 				{
-					//drawCard(i);
+					drawCard(i);
 					if (selcards[i] && !paused && !pressedpause) {
 						card_pos[i].x += 9;
 						card_pos[i].y += 29;
@@ -583,11 +614,11 @@ var ifSelectedCard = function(i)
 			if (timer > 0)
 			{
 				timer -= 1;
-				playSnd("SPEEDBONUS.WAV");
+				sound_play(snd_spdbns);
 				speedbns += 1;
 				score += 150;
 				frame -= 2;
-				Sleep(6);
+				//Sleep(6);
 			}
 			else
 				if (!won)
@@ -598,10 +629,10 @@ var ifSelectedCard = function(i)
 
 		if (frame >= maxframes - 0x1008 && timeleft > 0 && timeleft !== 127)
 		{
-			drawText(4, "SPEED\nBONUS", 503, 8, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
-			stringstream << int(speedbns * 150);
-			drawText(4, const_cast<char *>(stringstream.str().c_str()), 507, 60, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
-			stringstream.str("");
+			//drawText(4, "SPEED\nBONUS", 503, 8, 640, 480, D3DCOLOR_XRGB(0, 255, 255));
+			//stringstream << int(speedbns * 150);
+			//drawText(4, const_cast<char *>(stringstream.str().c_str()), 507, 60, 640, 480, D3DCOLOR_XRGB(255, 255, 0));
+			//stringstream.str("");
 			if (frame < maxframes - 0x200)
 				if (!won)
 					frame = maxframes - 0xff;
@@ -615,16 +646,16 @@ var ifSelectedCard = function(i)
 			frame = maxframes - 0xffffff;
 		}
 
-		if (frame >= maxframes - 0xffffff && frame <= maxframes - 0xfffff8)
-			drawText(4, "TIME'S\n  UP!", 503, 8, 640, 480, D3DCOLOR_XRGB(255, 0, 0));
+		//if (frame >= maxframes - 0xffffff && frame <= maxframes - 0xfffff8)
+			//drawText(4, "TIME'S\n  UP!", 503, 8, 640, 480, D3DCOLOR_XRGB(255, 0, 0));
 
 		if (frame === maxframes - 0xfffffa && !won)
 		{
 			won = false;
 			//if (sound)
-			if ((cheats >> 3) & 1)
-				PlaySoundA("HURRYUP.WAV", NULL, SND_FILENAME);
-			Sleep(2500);
+			//if ((cheats >> 3) & 1)
+				//PlaySoundA("HURRYUP.WAV", NULL, SND_FILENAME);
+			//Sleep(2500);
 			frame = maxframes - 0xff;
 		}
 
@@ -634,28 +665,28 @@ var ifSelectedCard = function(i)
 			{
 				decksize--;
 				score += 1000;
-				playSnd("DECKBONUS.WAV");
-				Sleep(70);
+				//sound_play("DECKBONUS.WAV");
+				//Sleep(70);
 				frame -= 4;
 			}
 			else
 				frame = maxframes - 0xff;
 		}
 
-		if (flash11s)
-			drawing->Draw(textures[2], &flash_11s_rect, NULL, NULL, 0, &flash_11s_pos, 0xFFFFFFFF);
+		//if (flash11s)
+			//drawing->Draw(textures[2], &flash_11s_rect, NULL, NULL, 0, &flash_11s_pos, 0xFFFFFFFF);
 
 		if (frame >= maxframes - 0xff && frame <= maxframes - 0xf0 && !stopcounting11s)
 		{
 			if (elevens > 0)
 			{
-				__asm add[score], 1000
+				//__asm add[score], 1000
 				//if (sound)
-				if ((cheats >> 3) & 1)
-					PlaySoundA("COUNT11S.WAV", NULL, SND_NOSTOP | SND_FILENAME | SND_ASYNC | SND_LOOP);
+				//if ((cheats >> 3) & 1)
+					//PlaySoundA("COUNT11S.WAV", NULL, SND_NOSTOP | SND_FILENAME | SND_ASYNC | SND_LOOP);
 				flash11s = !flash11s;
 				frame -= 15;
-				__asm dec[elevens]
+				//__asm dec[elevens]
 			}
 			else
 			{
@@ -714,7 +745,7 @@ var ifSelectedCard = function(i)
 		if (frame === maxframes - 0xffffa)
 		{
 			timeleft = timer;
-			for (byte i = 0; i < 4; i++) {
+			for (var i = 0; i < 4; i++) {
 				sound_play(snd_winround1);
 				//Sleep(730);
 				if (i === 1 || i === 3) {
@@ -723,7 +754,7 @@ var ifSelectedCard = function(i)
 				}
 			}
 			sound_play(snd_winround3);
-			Sleep(1363);
+			//Sleep(1363);
 			// 6922
 		}
 
@@ -782,16 +813,16 @@ var ifSelectedCard = function(i)
 			}
 			if (frame > 130 + (4 * 22))
 			{
-				for (int i = 35; i > 35 - timer; i--)
+				for (var i = 35; i > 35 - timer; i--)
 				{
-					int j;
+					var j;
 					if (i > 29 && i <= 35)
 						j = 2;
 					else if (i > 23 && i <= 29)
 						j = 1;
 					else
 						j = 0;
-					drawing->Draw(textures[1], &timer_rect_lights[j], NULL, NULL, 0, &timer_pos[i], 0xFFFFFFFF);
+					//drawing->Draw(textures[1], &timer_rect_lights[j], NULL, NULL, 0, &timer_pos[i], 0xFFFFFFFF);
 				}
 				if (frame < maxframes - 0xfffff && timer > 0)
 					if (timerInterval > 0)
@@ -814,19 +845,19 @@ var ifSelectedCard = function(i)
 			curdeckcard = 0;
 			for (var i = 0; i < 23; i++)
 			{
-				if (customCards === "")
-					cards[i] = random(0, 5) * random(1,2);
+				if (customCards === "" || customCards === undefined || customCards === null)
+					cards[i] = randrange(0, 10);
 				else
 					if (customCards[i] !== 'X')
 						cards[i] = customCards[i] - 0x30;
 					else
 						cards[i] = 10;
-				cards[i] += 16 * Math.floor(Math.random(0, 4));
+				cards[i] += 16 * randrange(0, 4);
 				selcards[i] = false;
 			}
 			for (var i = 0; i < decksize; i++)
 				if (customDeck === "")
-					deck[i] = (Math.floor(Math.random(0, 5)) * Math.floor(Math.random(1, 2))) + (16 * Math.floor(random(0, 4)));
+					deck[i] = (randrange(0, 5) * randrange(1, 2)) + (16 * randrange(0, 4));
 				else
 					if (customDeck[i] !== NULL)
 						if (customDeck[i] !== 'X')
@@ -865,11 +896,11 @@ var ifSelectedCard = function(i)
 			}
 		}
 
-		fonts[1]->End();
+		//fonts[1]->End();
 
 		if (curnum === 11 && pause === 0)
 		{
-			for (int i = 0; i < 23; i++)
+			for (var i = 0; i < 23; i++)
 				if (selcards[i])
 					if (i === 0)
 						score += 600;
@@ -883,7 +914,7 @@ var ifSelectedCard = function(i)
 						score += 200;
 					else
 						score += 100;
-			for (int i = 0; i < 23; i++)
+			for (var i = 0; i < 23; i++)
 			{
 				matchedcards[i] = selcards[i];
 				selcards[i] = 0;
@@ -896,7 +927,7 @@ var ifSelectedCard = function(i)
 
 		if (pause === 2)
 		{
-			for (int i = 0; i < 23; i++)
+			for (var i = 0; i < 23; i++)
 				if (matchedcards[i] && cards[i] !== 255)//cardexists[i])
 				{
 					selcards[i] = false;
@@ -958,73 +989,73 @@ var ifSelectedCard = function(i)
 				if (cards[21] === 255 || ((cheats >> 0) & 1))
 					selectCard(19);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(18))
 				if (cards[21] === 255 || ((cheats >> 0) & 1))
 					selectCard(18);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(17))
 				if (cards[20] === 255 || ((cheats >> 0) & 1))
 					selectCard(17);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(16))
 				if (cards[20] === 255 || ((cheats >> 0) & 1))
 					selectCard(16);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(15))
 				if (cards[19] === 255 || ((cheats >> 0) & 1))
 					selectCard(15);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(14))
 				if ((cards[18] === 255 && cards[19] === 255) || ((cheats >> 0) & 1))
 					selectCard(14);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(13))
 				if (cards[18] === 255 || ((cheats >> 0) & 1))
 					selectCard(13);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(12))
 				if (cards[17] === 255 || ((cheats >> 0) & 1))
 					selectCard(12);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(11))
 				if ((cards[16] === 255 && cards[17] === 255) || ((cheats >> 0) & 1))
 					selectCard(11);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(10))
 				if (cards[16] === 255 || ((cheats >> 0) & 1))
 					selectCard(10);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(9))
 				if ((cards[14] === 255 && cards[15] === 255) || ((cheats >> 0) & 1))
 					selectCard(9);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(8))
 				if ((cards[13] === 255 && cards[14] === 255) || ((cheats >> 0) & 1))
 					selectCard(8);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(7))
 				selectCard(7);
@@ -1033,43 +1064,43 @@ var ifSelectedCard = function(i)
 				if ((cards[11] === 255 && cards[12] === 255) || ((cheats >> 0) & 1))
 					selectCard(6);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(5))
 				if ((cards[10] === 255 && cards[11] === 255) || ((cheats >> 0) & 1))
 					selectCard(5);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(4))
 				if ((cards[8] === 255 && cards[9] === 255) || ((cheats >> 0) & 1))
 					selectCard(4);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(3))
 				if ((cards[7] === 255 && cards[13] === 255) || ((cheats >> 0) & 1))
 					selectCard(3);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(2))
 				if ((cards[7] === 255 && cards[12] === 255) || ((cheats >> 0) & 1))
 					selectCard(2);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(1))
 				if ((cards[5] === 255 && cards[6] === 255) || ((cheats >> 0) & 1))
 					selectCard(1);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 
 			if (ifSelectedCard(0))
 				if ((cards[2] === 255 && cards[3] === 255) || ((cheats >> 0) & 1))
 					selectCard(0);
 				else
-					playSnd("ERROR.WAV");
+					sound_play(snd_error);
 		}
 
 		if (((cheats >> 1) & 1))
@@ -1129,8 +1160,6 @@ var ifSelectedCard = function(i)
 				//mov[hiscore], eax
 			//}
 		}
-
-		frame++;
 	}
 
 
