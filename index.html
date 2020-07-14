@@ -50,9 +50,8 @@
 				snd_flipcard = new Audio('FLIPCARD.WAV'),
                 snd_select = new Audio('SELECT.WAV'),
                 snd_winner = new Audio('WINNER.WAV'),
-                snd_winround1 = new Audio('WINNER1.WAV'),
-                snd_winround2 = new Audio('WINNER2.WAV'),
-                snd_winround3 = new Audio('WINNER3.WAV'),
+                snd_winner1 = new Audio('WINNER1.WAV'),
+                snd_winner2 = new Audio('WINNER2.WAV'),
                 snd_error = new Audio('ERROR.wav'),
                 snd_bonus = new Audio('BONUS.wav'),
                 snd_count11s = new Audio('COUNT11S.WAV'),
@@ -483,7 +482,8 @@ var drawCard = function(i)
 				draw();
 			}
 			function keycheck(event) {
-
+                if (event.keyCode === 112)
+                    pressedpause = true;
 			}
 			// draw modes, 0 : dom, 1 : canvas
 			if (params.get('drawmode') !== null)
@@ -880,6 +880,9 @@ var drawCard = function(i)
 						j = 1;
 					else
 						j = 0;
+                    ctx.drawImage(cardtex,timer_rect_lights[j].left,
+                                          timer_rect_lights[j].top,13,9,
+                                          timer_pos[i].x,timer_pos[i].y,13,9)
 					//drawing->Draw(textures[1], &timer_rect_lights[j], NULL, NULL, 0, &timer_pos[i], 0xFFFFFFFF);
 				}
 				if (frame < maxframes - 0xfffff && timer > 0)
@@ -1180,20 +1183,6 @@ var drawCard = function(i)
 					prevFrame = performance.now();
 					frame++;
 
-	if (pressedpause)
-	{
-		////d3ddev->BeginScene();
-		//////drawText(3, "PAUSED", 110, 100, 640, 480, D3DCOLOR_XRGB(0, 0, 0));
-		//////drawText(3, "PAUSED", 100, 90, 640, 480, D3DCOLOR_XRGB(255, 127, 0));
-		//////drawText(4, "PAUSED", 265, 84, 400, 224, D3DCOLOR_XRGB(255, 127, 0));
-		////drawText(4, "PAUSED", 266, 86, 400, 224, D3DCOLOR_XRGB(0, 0, 0));
-		////drawText(4, "PAUSED", 264, 84, 400, 224, D3DCOLOR_XRGB(255, 127, 0));
-		////d3ddev->EndScene();
-		////d3ddev->Present(NULL, NULL, NULL, NULL);
-		pressedpause = false;
-		paused = !paused;
-	}
-
 	curnum = 0;
 
 	LMB = false;
@@ -1225,6 +1214,29 @@ var drawCard = function(i)
 
 					}
 				}
+                               
+                               
+                               if (pressedpause)
+                               {
+                               ////d3ddev->BeginScene();
+                               //////drawText(3, "PAUSED", 110, 100, 640, 480, D3DCOLOR_XRGB(0, 0, 0));
+                               
+                               //////drawText(3, "PAUSED", 100, 90, 640, 480, D3DCOLOR_XRGB(255, 127, 0));
+                               //////drawText(4, "PAUSED", 265, 84, 400, 224, D3DCOLOR_XRGB(255, 127, 0));
+                               ////drawText(4, "PAUSED", 266, 86, 400, 224, D3DCOLOR_XRGB(0, 0, 0));
+                               ////drawText(4, "PAUSED", 264, 84, 400, 224, D3DCOLOR_XRGB(255, 127, 0));
+                               ////d3ddev->EndScene();
+                               ////d3ddev->Present(NULL, NULL, NULL, NULL);
+                               
+                               ctx.font = "29px Arial, sans-serif, Times, Times New Roman, serif, Courier, 'Courier New', monospace";
+                               ctx.textAlign = "center";
+                               ctx.fillStyle = "#000";
+                               ctx.fillText("PAUSED", 321, 241);
+                               ctx.fillStyle = "#f80";
+                               ctx.fillText("PAUSED", 319, 239);
+                               pressedpause = false;
+                               paused = !paused;
+                               }
 			}
 			startAnimating(60);
 		</script>
