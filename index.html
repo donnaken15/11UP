@@ -26,7 +26,10 @@
 		<meta name="og:url" content="https://donnaken15.github.io/11UP/index.html"/>
 		<meta name="og:site_name" content="11UP"/>
 		<meta name="og:description" content="Play Megatouch 11UP on the web"/>
-		<meta name="viewport" content= "width=device-width, user-scalable=no"/>
+		<meta name="viewport" content= "width=640, user-scalable=no"/>
+        <meta name="apple-mobile-web-app-capable" content="yes"/>
+        <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+        <meta name="HandheldFriendly" content="true"/>
 		<meta http-equiv="Expires" content="0"/>
 		<meta http-equiv="Pragma" content="no-cache"/>
 		<meta http-equiv="Cache-Control" content="no-cache"/>
@@ -60,7 +63,7 @@
                 snd_hurryup = new Audio('HURRYUP.WAV'),
                 snd_match = new Audio('MATCH.WAV'),
                 snd_spdbns = new Audio('SPEEDBONUS.WAV'),
-                
+                resbounds = point(640,480),
 				paused, pressedpause, checkforwin, cheats, decksize, decksizeorig = 30,
 				customCards = "", customDeck = "", time, cardtex = document.getElementById("cardtex"),
 				card_rect_num = new Array(), card_rect_suit = new Array(), card_suit_pos = new Array(), timer_rect_lights = new Array(),
@@ -362,8 +365,8 @@ var getCardColor = function(card)
 }
 
 var clickedArea = function(rct) {
-	return (mouse.clientX >= rct.left && mouse.clientX <= rct.right
-		&& mouse.clientY >= rct.top && mouse.clientY <= rct.bottom && LMB);
+	return ((mouse.clientX / resbounds.x) * 640 >= rct.left && (mouse.clientX / resbounds.x) * 640 <= rct.right
+		&& (mouse.clientY / resbounds.y) * 480 >= rct.top && (mouse.clientY / resbounds.y) * 480 <= rct.bottom && LMB);
 }
 
 var selectCard = function(i)
@@ -509,10 +512,18 @@ var drawCard = function(i)
 				elapsed = now - then;
 				if (elapsed > fpsInterval) {
                     if (window.innerWidth < 640 && window.innerHeight / 480 > window.innerWidth / 640)
+                               {
                         document.getElementById("sizer").innerHTML = "html { background-size: "+window.innerWidth.toString()+"px auto; }"
+                               resbounds = point(window.innerWidth,(window.innerWidth/640)*480)
+                               }
                     else if (window.innerHeight < 480 && window.innerHeight / 480 < window.innerWidth / 640)
+                               {
                         document.getElementById("sizer").innerHTML = "html { background-size: auto "+window.innerHeight.toString()+"px; }"
-                    else document.getElementById("sizer").innerHTML = ""
+                               resbounds = point((window.innerHeight/480)*640,window.innerHeight)
+                               }
+                               else { document.getElementById("sizer").innerHTML = ""
+                               resbounds = point(640,480)
+                               }
                     //if (window.innerWidth < 640 && window.innerHeight < 480)
                         //document.getElementById("sizer").innerHTML = "html { background-size: "+window.innerWidth.toString()+"px "+window.innerHeight.toString()+"px; }"
 					then = now - (elapsed % fpsInterval);
@@ -1163,7 +1174,7 @@ var drawCard = function(i)
 				else
 					sound_play(snd_error);
             
-            mousev = null;
+            //mousev = null;
 		}
 
 		if (((cheats >> 1) & 1))
