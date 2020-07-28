@@ -347,7 +347,7 @@ var clickedArea = function(rct) {
 		&& mouse.clientY >= rct.top && mouse.clientY <= rct.bottom && LMB);
 }
 
-var selectCard = function(i)
+function selectCard(i)
 {
 	//if (cardexists[i])
 	if (cards[i] !== 255)
@@ -366,7 +366,7 @@ var selectCard = function(i)
 	LMB = false;
 }
 
-var flipCard = function()
+function flipCard()
 {
 	if (decksize > 0)
 	{
@@ -398,7 +398,7 @@ var flipCard = function()
 		sound_play(snd_error);
 }
 
-var ifSelectedCard = function(i)
+function ifSelectedCard(i)
 {
 	return clickedArea(click_areas[i]) && cards[i] !== 255;
 }
