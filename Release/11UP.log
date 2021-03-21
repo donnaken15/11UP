@@ -1,0 +1,19 @@
+﻿  11UP.cpp
+C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\xlocale(323): warning C4530: C++ exception handler used, but unwind semantics are not enabled. Specify /EHsc
+11UP.cpp(106): warning C4172: returning address of local variable or temporary
+11UP.cpp(113): warning C4172: returning address of local variable or temporary
+11UP.cpp(156): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\string.h(110) : see declaration of 'strcat'
+11UP.cpp(157): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\string.h(110) : see declaration of 'strcat'
+  Generating code
+e:\11up\final_revise\11up.cpp(413): warning C4789: destination of memory copy is too small
+e:\11up\final_revise\11up.cpp(414): warning C4789: destination of memory copy is too small
+e:\11up\final_revise\11up.cpp(415): warning C4789: destination of memory copy is too small
+e:\11up\final_revise\11up.cpp(416): warning C4789: destination of memory copy is too small
+e:\11up\final_revise\11up.cpp(440): warning C4789: destination of memory copy is too small
+e:\11up\final_revise\11up.cpp(441): warning C4789: destination of memory copy is too small
+e:\11up\final_revise\11up.cpp(442): warning C4789: destination of memory copy is too small
+e:\11up\final_revise\11up.cpp(443): warning C4789: destination of memory copy is too small
+  Finished generating code
+  11UP.vcxproj -> E:\11UP\final_revise\11UP.exe

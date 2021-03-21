@@ -1,5 +1,5 @@
-#include "d3d9.h"
-#include "d3dx9.h"
+#include "include\\d3d9.h"
+#include "include\\d3dx9.h"
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -7,8 +7,8 @@
 #include <vector>
 #include <windows.h>
 
-#pragma comment (lib, "d3d9.lib")
-#pragma comment (lib, "d3dx9.lib")
+#pragma comment (lib, "include\\d3d9.lib")
+#pragma comment (lib, "include\\d3dx9.lib")
 #pragma comment (lib, "winmm.lib")
 
 static LPDIRECT3DTEXTURE9 textures[4];
@@ -34,7 +34,7 @@ static std::stringstream stringstream;
 
 static const LPCSTR title = "11UP";
 
-static LPCSTR ini;
+static LPSTR ini;
 
 static std::string customCards = "", customDeck = "", newscore = "";
 
@@ -98,18 +98,19 @@ static void NewTexture(LPCSTR fname, D3DFORMAT fmt, LPDIRECT3DTEXTURE9 *tex)
 		D3DX_DEFAULT, D3DCOLOR_XRGB(255, 0, 255), NULL, NULL, tex);
 }
 
-static std::string workingdir()
+static LPSTR workingdir()
 {
 	char buf[256];
 	GetCurrentDirectoryA(256, buf);
-	return std::string(buf) + '\\';
+	buf[strlen(buf)] = '\\';
+	return buf;
 }
 
-static std::string get_profile_string(LPCSTR name, LPCSTR key, LPCSTR def, LPCSTR filename)
+static LPSTR get_profile_string(LPCSTR name, LPCSTR key, LPCSTR def, LPCSTR filename)
 {
 	char temp[1024];
-	int result = GetPrivateProfileString(name, key, def, temp, sizeof(temp), filename);
-	return std::string(temp, result);
+	GetPrivateProfileString(name, key, def, temp, 1024, filename);
+	return temp;
 }
 
 static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -151,9 +152,9 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 	initD3D(hWnd);
 
-	stringstream << workingdir() << + "\\GAME.INI";
-
-	ini = const_cast<char *>(stringstream.str().c_str());
+	ini = new char[MAX_PATH];
+	strcat(ini, workingdir());
+	strcat(ini, "GAME.INI");
 
 	seed = GetPrivateProfileInt(title, "Seed", GetTickCount(), ini);
 	seedampmin = GetPrivateProfileInt(title, "SeedAmpMin", 1, ini);
@@ -754,7 +755,10 @@ static void render_frame(void)
 			drawText(5, "PLAYER 1", 120, 220, 640, 480, D3DCOLOR_XRGB(0, 255, 0));
 			//if (frame == ULLONG_MAX - 1 && sound)
 			if (frame == ULLONG_MAX - 1 && ((cheats >> 3) & 1))
-				PlaySoundA("WINNER.WAV",NULL,SND_FILENAME);
+			{
+				PlaySoundA("WINNER.WAV", NULL, SND_FILENAME);
+				PlaySoundA("WINNER.WAV", NULL, SND_FILENAME);
+			}
 		}
 
 		if (score > bnsgoal && !bnsround)
